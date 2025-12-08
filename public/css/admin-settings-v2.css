@@ -2438,3 +2438,127 @@ input:checked+.toggle-slider:before {
     font-size: 0.8125rem;
     color: rgba(255, 255, 255, 0.7);
 }
+
+/* =============================================
+   Facebook Apps & Pages Styles
+   ============================================= */
+
+.fb-app-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.fb-app-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.fb-app-card.border-warning {
+    border-color: #f59e0b;
+}
+
+.fb-app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.fb-app-header:hover {
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+}
+
+.fb-app-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.fb-app-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1877f2, #0f5ecc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.fb-app-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.fb-app-name {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.fb-app-meta {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fb-app-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.fb-app-toggle {
+    color: var(--text-secondary);
+    transition: transform 0.3s ease;
+    margin-left: 0.5rem;
+}
+
+.fb-app-pages {
+    border-top: 1px solid var(--border-color);
+    background: #fff;
+    padding: 0.5rem;
+}
+
+.fb-pages-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    background: #f8fafc;
+    border-radius: 8px;
+}
+
+.fb-app-pages .bot-item-compact {
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: #fafbfc;
+}
+
+.fb-app-pages .bot-item-compact:last-child {
+    margin-bottom: 0;
+}
+
+.fb-app-pages .bot-item-compact:hover {
+    border-color: var(--primary-color);
+    background: #fff;
+}

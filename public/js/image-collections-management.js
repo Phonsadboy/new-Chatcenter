@@ -526,8 +526,6 @@
             } else {
                 showAlert('✅ ' + data.message + ' ไม่พบปัญหาใด ๆ', 'success');
             }
-
-            console.log('[Consistency Check]', data);
         } catch (err) {
             console.error('Data consistency check error:', err);
             showAlert('❌ ' + (err.message || 'เกิดข้อผิดพลาดในการตรวจสอบข้อมูล'), 'danger');

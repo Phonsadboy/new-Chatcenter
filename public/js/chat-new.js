@@ -166,22 +166,18 @@ class ChatManager {
         this.socket = io();
 
         this.socket.on('connect', () => {
-            console.log('เชื่อมต่อ Socket.IO สำเร็จ');
             window.showSuccess('เชื่อมต่อสำเร็จ');
         });
 
         this.socket.on('disconnect', () => {
-            console.log('การเชื่อมต่อ Socket.IO ถูกตัด');
             window.showWarning('การเชื่อมต่อถูกตัด');
         });
 
         this.socket.on('newMessage', (data) => {
-            console.log('ข้อความใหม่:', data);
             this.handleNewMessage(data);
         });
 
         this.socket.on('followUpTagged', (data) => {
-            console.log('อัปเดตสถานะติดตาม:', data);
             this.handleFollowUpTagged(data);
         });
 
@@ -203,17 +199,14 @@ class ChatManager {
 
         // Order-related socket events
         this.socket.on('orderExtracted', (data) => {
-            console.log('ออเดอร์ใหม่:', data);
             this.handleOrderExtracted(data);
         });
 
         this.socket.on('orderUpdated', (data) => {
-            console.log('ออเดอร์อัปเดต:', data);
             this.handleOrderUpdated(data);
         });
 
         this.socket.on('orderDeleted', (data) => {
-            console.log('ออเดอร์ถูกลบ:', data);
             this.handleOrderDeleted(data);
         });
 

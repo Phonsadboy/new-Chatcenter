@@ -5979,18 +5979,11 @@ function schedule15MinRefresh() {
       currentMinute % 15 === 0 &&
       lastUpdatedQuarter !== currentQuarterLabel
     ) {
-      console.log(
-        "[DEBUG] It's a new 15-minute interval => refreshing sheet data & doc instructions...",
-      );
-
       try {
         await fetchGoogleDocInstructions();
         sheetJSON = await fetchAllSheetsData(SPREADSHEET_ID);
 
         lastUpdatedQuarter = currentQuarterLabel;
-        console.log(
-          `[DEBUG] sheetJSON & googleDocInstructions updated at ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}`,
-        );
       } catch (err) {
         console.error("15-minute sheet update error:", err);
       }
@@ -7610,7 +7603,6 @@ async function sendMessage(
 ) {
   try {
     if (!message || message.trim() === "") {
-      console.log("[DEBUG] Empty message, no reply needed");
       return;
     }
 
@@ -10003,7 +9995,302 @@ app.post("/webhook/line/:botId", async (req, res) => {
   }
 });
 
-// ============================ Facebook Bot Webhook Handler ============================
+// ============================ Facebook App Shared Webhook Handler (NEW) ============================
+
+// Shared Facebook Webhook verification (GET) - for multi-page apps
+app.get("/webhook/fb/:appId", async (req, res) => {
+  try {
+    const { appId } = req.params;
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const appsColl = db.collection("facebook_apps");
+
+    // Find the Facebook App by ID
+    const facebookApp = ObjectId.isValid(appId)
+      ? await appsColl.findOne({ _id: new ObjectId(appId) })
+      : null;
+
+    if (!facebookApp) {
+      console.warn(`[Facebook App Webhook] App not found: ${appId}`);
+      return res.status(404).send("Facebook App not found");
+    }
+
+    // Handle Facebook webhook verification
+    if (req.query["hub.mode"] === "subscribe") {
+      if (req.query["hub.verify_token"] === facebookApp.verifyToken) {
+        console.log(`[Facebook App: ${facebookApp.name}] Webhook verified successfully`);
+        return res.status(200).send(req.query["hub.challenge"]);
+      } else {
+        console.warn(
+          `[Facebook App: ${facebookApp.name}] Invalid verify token received: ${req.query["hub.verify_token"]}`
+        );
+      }
+    }
+
+    return res.status(400).send("Invalid verification request");
+  } catch (err) {
+    console.error("Error handling Facebook App webhook verification:", err);
+    res.status(500).send("Server error");
+  }
+});
+
+// Shared Facebook Webhook events handler (POST) - routes to correct page by pageId
+app.post("/webhook/fb/:appId", async (req, res) => {
+  try {
+    const { appId } = req.params;
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const appsColl = db.collection("facebook_apps");
+    const botsColl = db.collection("facebook_bots");
+
+    // Find the Facebook App by ID
+    const facebookApp = ObjectId.isValid(appId)
+      ? await appsColl.findOne({ _id: new ObjectId(appId) })
+      : null;
+
+    if (!facebookApp || facebookApp.status !== "active") {
+      console.warn(`[Facebook App Webhook] App not found or inactive: ${appId}`);
+      return res.status(404).json({ error: "Facebook App ไม่พบหรือไม่เปิดใช้งาน" });
+    }
+
+    // Respond immediately to avoid Facebook retries
+    res.status(200).json({ status: "EVENT_RECEIVED" });
+
+    // Process webhook events asynchronously
+    if (req.body.object === "page") {
+      for (let entry of req.body.entry) {
+        // Extract pageId from entry
+        const entryPageId = entry.id;
+
+        if (!entryPageId) {
+          console.warn("[Facebook App Webhook] No page ID in entry");
+          continue;
+        }
+
+        // Find the Facebook Bot/Page matching this pageId and connected to this app
+        const facebookBot = await botsColl.findOne({
+          facebookAppId: new ObjectId(appId),
+          pageId: entryPageId,
+          status: "active",
+        });
+
+        if (!facebookBot) {
+          console.warn(
+            `[Facebook App: ${facebookApp.name}] No active bot found for pageId: ${entryPageId}`
+          );
+          continue;
+        }
+
+        const pageId = facebookBot.pageId;
+        const accessToken = facebookBot.accessToken;
+
+        const queueOptionsBase = {
+          botType: "facebook",
+          platform: "facebook",
+          botId: facebookBot._id ? facebookBot._id.toString() : null,
+          facebookAccessToken: facebookBot.accessToken,
+          aiModel: facebookBot.aiModel || null,
+          selectedInstructions: facebookBot.selectedInstructions || [],
+          selectedImageCollections: facebookBot.selectedImageCollections || null,
+        };
+
+        // Handle feed/comment events
+        if (entry.changes) {
+          for (let change of entry.changes) {
+            if (change.field !== "feed" || !change.value) continue;
+            const value = change.value;
+            const postId =
+              value.post_id || value.post?.id || value.parent_id || null;
+
+            // Upsert post whenever we see feed change (post/comment/share)
+            if (postId) {
+              upsertFacebookPost(db, facebookBot, postId, "webhook").catch(
+                (err) => {
+                  console.error(
+                    "[Facebook App Webhook] Error upserting post:",
+                    err?.message || err
+                  );
+                }
+              );
+            }
+
+            // Handle new comments
+            if (value.item === "comment" && value.verb === "add") {
+              const commentData = {
+                id: value.comment_id,
+                message: value.message,
+                from: value.from,
+              };
+
+              handleFacebookComment(
+                pageId,
+                postId,
+                commentData,
+                accessToken,
+                facebookBot
+              ).catch((err) => {
+                console.error("[Facebook App Webhook] Error processing comment:", err);
+              });
+            }
+          }
+        }
+
+        // Handle messaging events
+        if (entry.messaging && Array.isArray(entry.messaging)) {
+          for (let messagingEvent of entry.messaging) {
+            // จัดการข้อความที่ส่งจากเพจเอง (echo) – ถือว่าเป็นข้อความจากแอดมินเพจ
+            if (messagingEvent.message?.is_echo) {
+              try {
+                const targetUserId = messagingEvent.recipient?.id;
+                const text = messagingEvent.message?.text?.trim();
+                const metadata = messagingEvent.message?.metadata || "";
+
+                // ข้ามข้อความที่ระบบส่งอัตโนมัติ
+                const automatedMetadata = ["ai_generated", "follow_up_auto"];
+                if (metadata && automatedMetadata.includes(metadata)) {
+                  console.log(
+                    `[Facebook Bot: ${facebookBot.name}] Skip echo for automated message (${metadata}) to ${targetUserId}`
+                  );
+                  continue;
+                }
+
+                if (!targetUserId) {
+                  continue;
+                }
+
+                const chatColl = db.collection("chat_history");
+                const existingCount = await chatColl.countDocuments({
+                  platform: "facebook",
+                  botId: facebookBot._id.toString(),
+                  recipientId: targetUserId,
+                  message: text,
+                  timestamp: {
+                    $gte: new Date(Date.now() - 60000),
+                  },
+                });
+
+                if (existingCount > 0 && text) {
+                  console.log(
+                    `[Facebook Bot: ${facebookBot.name}] Skip duplicate page reply to ${targetUserId}`
+                  );
+                  continue;
+                }
+
+                const echoDoc = {
+                  recipientId: targetUserId,
+                  displayName: "",
+                  message: text || "[ส่งสื่อ/สติกเกอร์]",
+                  response: "",
+                  platform: "facebook",
+                  botId: facebookBot._id.toString(),
+                  isFromPage: true,
+                  isFromAdmin: true,
+                  timestamp: new Date(),
+                };
+
+                await chatColl.insertOne(echoDoc);
+
+                // Cancel any scheduled follow-ups when page responds
+                if (typeof cancelFollowUpTasksForUser === "function") {
+                  await cancelFollowUpTasksForUser(
+                    targetUserId,
+                    "facebook",
+                    facebookBot._id.toString(),
+                    { reason: "admin_reply" }
+                  );
+                }
+
+                console.log(
+                  `[Facebook Bot: ${facebookBot.name}] Saved page echo message to ${targetUserId}`
+                );
+              } catch (echoErr) {
+                console.error(
+                  `[Facebook Bot: ${facebookBot.name}] Error saving echo message:`,
+                  echoErr
+                );
+              }
+              continue;
+            }
+
+            // Handle normal incoming messages from users
+            if (messagingEvent.message || messagingEvent.postback) {
+              const senderId = messagingEvent.sender?.id;
+
+              if (!senderId || senderId === pageId) {
+                continue;
+              }
+
+              // Get user profile
+              let userProfile = { displayName: "Facebook User", pictureUrl: "" };
+              try {
+                const userProfileRes = await axios.get(
+                  `https://graph.facebook.com/v18.0/${senderId}`,
+                  {
+                    params: {
+                      fields: "first_name,last_name,profile_pic",
+                      access_token: accessToken,
+                    },
+                  }
+                );
+                if (userProfileRes.data) {
+                  const firstName = userProfileRes.data.first_name || "";
+                  const lastName = userProfileRes.data.last_name || "";
+                  userProfile.displayName = `${firstName} ${lastName}`.trim() || "Facebook User";
+                  userProfile.pictureUrl = userProfileRes.data.profile_pic || "";
+                }
+              } catch (profileErr) {
+                console.warn(
+                  `[Facebook Bot: ${facebookBot.name}] Could not get user profile for ${senderId}:`,
+                  profileErr.message
+                );
+              }
+
+              let messageText = "";
+              let attachments = [];
+
+              if (messagingEvent.message) {
+                messageText = messagingEvent.message.text || "";
+                attachments = messagingEvent.message.attachments || [];
+              } else if (messagingEvent.postback) {
+                messageText = messagingEvent.postback.payload || messagingEvent.postback.title || "";
+              }
+
+              // Enqueue message for processing
+              const chatDoc = {
+                recipientId: senderId,
+                displayName: userProfile.displayName,
+                pictureUrl: userProfile.pictureUrl,
+                message: messageText,
+                attachments: attachments,
+                response: "",
+                platform: "facebook",
+                botId: facebookBot._id.toString(),
+                timestamp: new Date(),
+              };
+
+              try {
+                await addToQueue(senderId, chatDoc, { ...queueOptionsBase, senderId });
+                console.log(
+                  `[Facebook Bot: ${facebookBot.name}] Queued message from ${senderId}: ${messageText.substring(0, 50)}...`
+                );
+              } catch (queueErr) {
+                console.error(
+                  `[Facebook Bot: ${facebookBot.name}] Error queueing message:`,
+                  queueErr
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error handling Facebook App webhook:", err);
+    // Already responded 200, just log the error
+  }
+});
+
+// ============================ Facebook Bot Webhook Handler (Legacy - per bot) ============================
 
 // Facebook Webhook verification (GET) and events (POST)
 app.get("/webhook/facebook/:botId", async (req, res) => {
@@ -11749,14 +12036,42 @@ app.post("/api/facebook-bots/init", async (req, res) => {
   }
 });
 
-// Get all Facebook Bots
+// Get all Facebook Bots (Pages) with their associated App info
 app.get("/api/facebook-bots", async (req, res) => {
   try {
     const client = await connectDB();
     const db = client.db("chatbot");
-    const coll = db.collection("facebook_bots");
-    const facebookBots = await coll.find({}).sort({ createdAt: -1 }).toArray();
-    res.json(facebookBots);
+    const botsColl = db.collection("facebook_bots");
+    const appsColl = db.collection("facebook_apps");
+
+    const facebookBots = await botsColl.find({}).sort({ createdAt: -1 }).toArray();
+
+    // Get all unique app IDs
+    const appIds = [...new Set(
+      facebookBots
+        .filter(bot => bot.facebookAppId)
+        .map(bot => bot.facebookAppId.toString())
+    )];
+
+    // Fetch all apps in one query
+    const apps = appIds.length > 0
+      ? await appsColl.find({
+        _id: { $in: appIds.map(id => new ObjectId(id)) },
+      }).toArray()
+      : [];
+
+    const appsMap = {};
+    apps.forEach(app => {
+      appsMap[app._id.toString()] = app;
+    });
+
+    // Attach app info to each bot
+    const botsWithApps = facebookBots.map(bot => ({
+      ...bot,
+      facebookApp: bot.facebookAppId ? appsMap[bot.facebookAppId.toString()] || null : null,
+    }));
+
+    res.json(botsWithApps);
   } catch (err) {
     console.error("Error fetching facebook bots:", err);
     res.status(500).json({ error: "ไม่สามารถดึงข้อมูล Facebook Bot ได้" });
@@ -11783,7 +12098,7 @@ app.get("/api/facebook-bots/:id", async (req, res) => {
   }
 });
 
-// Create new Facebook Bot
+// Create new Facebook Bot (Page)
 app.post("/api/facebook-bots", async (req, res) => {
   try {
     const {
@@ -11791,44 +12106,44 @@ app.post("/api/facebook-bots", async (req, res) => {
       description,
       pageId,
       accessToken,
-      webhookUrl,
-      verifyToken,
+      facebookAppId,
       status,
       isDefault,
       aiModel,
       selectedInstructions,
       selectedImageCollections,
       openaiApiKeyId,
+      datasetId,
     } = req.body;
 
-    if (!name || !pageId || !accessToken) {
+    if (!name || !pageId || !accessToken || !facebookAppId) {
       return res
         .status(400)
         .json({ error: "กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน" });
     }
 
+    if (!ObjectId.isValid(facebookAppId)) {
+      return res.status(400).json({ error: "Facebook App ID ไม่ถูกต้อง" });
+    }
+
+    const appObjectId = new ObjectId(facebookAppId);
+
     const client = await connectDB();
     const db = client.db("chatbot");
     const coll = db.collection("facebook_bots");
 
-    const existing = await coll.findOne({ _id: new ObjectId(id) });
-    if (!existing) {
-      return res.status(404).json({ error: "ไม่พบ Facebook Bot ที่ระบุ" });
+    // Check if pageId already exists in this app
+    const existingPage = await coll.findOne({
+      pageId,
+      facebookAppId: appObjectId,
+    });
+    if (existingPage) {
+      return res.status(400).json({ error: "Page ID นี้มีในระบบแล้ว" });
     }
 
     // If this is default, unset other defaults
     if (isDefault) {
       await coll.updateMany({}, { $set: { isDefault: false } });
-    }
-
-    // Generate unique webhook URL if not provided
-    let finalWebhookUrl = webhookUrl;
-    if (!finalWebhookUrl) {
-      const baseUrl =
-        process.env.PUBLIC_BASE_URL || "https://" + req.get("host");
-      const uniqueId =
-        Date.now().toString(36) + Math.random().toString(36).substr(2);
-      finalWebhookUrl = `${baseUrl}/webhook/facebook/${uniqueId}`;
     }
 
     const normalizedSelections = normalizeInstructionSelections(
@@ -11843,8 +12158,7 @@ app.post("/api/facebook-bots", async (req, res) => {
       description: description || "",
       pageId,
       accessToken,
-      webhookUrl: finalWebhookUrl,
-      verifyToken: verifyToken || "your_verify_token",
+      facebookAppId: appObjectId,
       status: status || "active",
       isDefault: isDefault || false,
       aiModel: aiModel || "gpt-5",
@@ -11852,6 +12166,7 @@ app.post("/api/facebook-bots", async (req, res) => {
       selectedInstructions: normalizedSelections,
       selectedImageCollections: normalizedCollections,
       openaiApiKeyId: openaiApiKeyId || null,
+      datasetId: datasetId || null,
       keywordSettings: {
         enableAI: { keyword: "", response: "" },
         disableAI: { keyword: "", response: "" },
@@ -11864,14 +12179,19 @@ app.post("/api/facebook-bots", async (req, res) => {
     const result = await coll.insertOne(facebookBot);
     facebookBot._id = result.insertedId;
 
-    res.status(201).json(facebookBot);
+    // Get the associated app info if linked
+    let appInfo = null;
+    const appsColl = db.collection("facebook_apps");
+    appInfo = await appsColl.findOne({ _id: appObjectId });
+
+    res.status(201).json({ ...facebookBot, facebookApp: appInfo });
   } catch (err) {
     console.error("Error creating facebook bot:", err);
     res.status(500).json({ error: "ไม่สามารถสร้าง Facebook Bot ได้" });
   }
 });
 
-// Update Facebook Bot
+// Update Facebook Bot (Page)
 app.put("/api/facebook-bots/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -11880,8 +12200,7 @@ app.put("/api/facebook-bots/:id", async (req, res) => {
       description,
       pageId,
       accessToken,
-      webhookUrl,
-      verifyToken,
+      facebookAppId,
       status,
       isDefault,
       aiModel,
@@ -11909,14 +12228,25 @@ app.put("/api/facebook-bots/:id", async (req, res) => {
       await coll.updateMany({}, { $set: { isDefault: false } });
     }
 
+    // Handle facebookAppId
+    let newFacebookAppId = existing.facebookAppId;
+    if (facebookAppId !== undefined) {
+      if (!facebookAppId) {
+        return res.status(400).json({ error: "กรุณาเลือก Facebook App" });
+      }
+      if (!ObjectId.isValid(facebookAppId)) {
+        return res.status(400).json({ error: "Facebook App ID ไม่ถูกต้อง" });
+      }
+      newFacebookAppId = new ObjectId(facebookAppId);
+    }
+
     const updateData = {
       name,
       description: description || "",
       pageId,
       accessToken,
-      webhookUrl: webhookUrl || "",
-      verifyToken: verifyToken || "your_verify_token",
-      status: status || "active",
+      facebookAppId: newFacebookAppId,
+      status: status !== undefined ? status : existing.status || "active",
       isDefault: isDefault || false,
       aiModel: aiModel || existing.aiModel || "gpt-5",
       aiConfig: normalizeAiConfig(
@@ -11944,7 +12274,14 @@ app.put("/api/facebook-bots/:id", async (req, res) => {
       return res.status(404).json({ error: "ไม่พบ Facebook Bot ที่ระบุ" });
     }
 
-    res.json({ message: "อัปเดต Facebook Bot เรียบร้อยแล้ว" });
+    // Get the associated app info if linked
+    let appInfo = null;
+    if (newFacebookAppId) {
+      const appsColl = db.collection("facebook_apps");
+      appInfo = await appsColl.findOne({ _id: newFacebookAppId });
+    }
+
+    res.json({ message: "อัปเดต Facebook Bot เรียบร้อยแล้ว", facebookApp: appInfo });
   } catch (err) {
     console.error("Error updating facebook bot:", err);
     res.status(500).json({ error: "ไม่สามารถอัปเดต Facebook Bot ได้" });
@@ -12137,6 +12474,285 @@ app.put("/api/facebook-bots/:id/image-collections", async (req, res) => {
     res
       .status(500)
       .json({ error: "ไม่สามารถอัปเดตคลังรูปภาพของ Facebook Bot ได้" });
+  }
+});
+
+// ============================ Facebook Apps API Endpoints ============================
+
+// Get all Facebook Apps
+app.get("/api/facebook-apps", async (req, res) => {
+  try {
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const appsColl = db.collection("facebook_apps");
+    const botsColl = db.collection("facebook_bots");
+
+    const apps = await appsColl.find({}).sort({ createdAt: -1 }).toArray();
+
+    // Count connected pages for each app
+    const appsWithCounts = await Promise.all(
+      apps.map(async (app) => {
+        const pageCount = await botsColl.countDocuments({
+          facebookAppId: app._id,
+        });
+        return { ...app, connectedPagesCount: pageCount };
+      })
+    );
+
+    res.json(appsWithCounts);
+  } catch (err) {
+    console.error("Error fetching facebook apps:", err);
+    res.status(500).json({ error: "ไม่สามารถดึงข้อมูล Facebook Apps ได้" });
+  }
+});
+
+// Get single Facebook App with connected pages
+app.get("/api/facebook-apps/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid App ID" });
+    }
+
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const appsColl = db.collection("facebook_apps");
+    const botsColl = db.collection("facebook_bots");
+
+    const app = await appsColl.findOne({ _id: new ObjectId(id) });
+    if (!app) {
+      return res.status(404).json({ error: "ไม่พบ Facebook App ที่ระบุ" });
+    }
+
+    // Get connected pages
+    const connectedPages = await botsColl
+      .find({ facebookAppId: new ObjectId(id) })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.json({ ...app, connectedPages });
+  } catch (err) {
+    console.error("Error fetching facebook app:", err);
+    res.status(500).json({ error: "ไม่สามารถดึงข้อมูล Facebook App ได้" });
+  }
+});
+
+// Get pages connected to a Facebook App
+app.get("/api/facebook-apps/:id/pages", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid App ID" });
+    }
+
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const botsColl = db.collection("facebook_bots");
+
+    const pages = await botsColl
+      .find({ facebookAppId: new ObjectId(id) })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.json(pages);
+  } catch (err) {
+    console.error("Error fetching facebook app pages:", err);
+    res.status(500).json({ error: "ไม่สามารถดึงข้อมูล Pages ของ Facebook App ได้" });
+  }
+});
+
+// Create new Facebook App
+app.post("/api/facebook-apps", async (req, res) => {
+  try {
+    const { name, appId, appSecret, verifyToken } = req.body;
+
+    if (!name || !appId) {
+      return res.status(400).json({ error: "กรุณากรอกชื่อและ App ID" });
+    }
+
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const coll = db.collection("facebook_apps");
+
+    // Check if appId already exists
+    const existing = await coll.findOne({ appId });
+    if (existing) {
+      return res.status(400).json({ error: "App ID นี้มีในระบบแล้ว" });
+    }
+
+    // Generate verify token if not provided
+    const finalVerifyToken =
+      verifyToken ||
+      "vt_" +
+      Math.random().toString(36).slice(2, 10) +
+      Math.random().toString(36).slice(2, 10);
+
+    // Generate webhook URL
+    const baseUrl = process.env.PUBLIC_BASE_URL || "https://" + req.get("host");
+
+    const newApp = {
+      name,
+      appId,
+      appSecret: appSecret || "",
+      verifyToken: finalVerifyToken,
+      webhookUrl: "", // Will be set after _id is known
+      status: "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await coll.insertOne(newApp);
+    const insertedId = result.insertedId;
+
+    // Update webhook URL with the new ID
+    const webhookUrl = `${baseUrl}/webhook/fb/${insertedId.toString()}`;
+    await coll.updateOne({ _id: insertedId }, { $set: { webhookUrl } });
+
+    res.status(201).json({
+      ...newApp,
+      _id: insertedId,
+      webhookUrl,
+      connectedPagesCount: 0,
+    });
+  } catch (err) {
+    console.error("Error creating facebook app:", err);
+    res.status(500).json({ error: "ไม่สามารถสร้าง Facebook App ได้" });
+  }
+});
+
+// Update Facebook App
+app.put("/api/facebook-apps/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, appId, appSecret, verifyToken, status } = req.body;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid App ID" });
+    }
+
+    if (!name || !appId) {
+      return res.status(400).json({ error: "กรุณากรอกชื่อและ App ID" });
+    }
+
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const coll = db.collection("facebook_apps");
+
+    // Check if app exists
+    const existing = await coll.findOne({ _id: new ObjectId(id) });
+    if (!existing) {
+      return res.status(404).json({ error: "ไม่พบ Facebook App ที่ระบุ" });
+    }
+
+    // Check if appId is taken by another app
+    const duplicateAppId = await coll.findOne({
+      appId,
+      _id: { $ne: new ObjectId(id) },
+    });
+    if (duplicateAppId) {
+      return res.status(400).json({ error: "App ID นี้ถูกใช้โดย App อื่นแล้ว" });
+    }
+
+    const updateData = {
+      name,
+      appId,
+      appSecret: appSecret || existing.appSecret || "",
+      verifyToken: verifyToken || existing.verifyToken,
+      status: status || existing.status || "active",
+      updatedAt: new Date(),
+    };
+
+    await coll.updateOne({ _id: new ObjectId(id) }, { $set: updateData });
+
+    // Get updated app with page count
+    const botsColl = db.collection("facebook_bots");
+    const pageCount = await botsColl.countDocuments({
+      facebookAppId: new ObjectId(id),
+    });
+
+    res.json({
+      ...existing,
+      ...updateData,
+      connectedPagesCount: pageCount,
+    });
+  } catch (err) {
+    console.error("Error updating facebook app:", err);
+    res.status(500).json({ error: "ไม่สามารถอัปเดต Facebook App ได้" });
+  }
+});
+
+// Delete Facebook App
+app.delete("/api/facebook-apps/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid App ID" });
+    }
+
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const appsColl = db.collection("facebook_apps");
+    const botsColl = db.collection("facebook_bots");
+
+    // Check if any pages are connected
+    const connectedPages = await botsColl.countDocuments({
+      facebookAppId: new ObjectId(id),
+    });
+
+    if (connectedPages > 0) {
+      return res.status(400).json({
+        error: `ไม่สามารถลบได้ มี ${connectedPages} Page(s) เชื่อมต่อกับ App นี้อยู่ กรุณาลบหรือย้าย Pages ก่อน`,
+      });
+    }
+
+    const result = await appsColl.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "ไม่พบ Facebook App ที่ระบุ" });
+    }
+
+    res.json({ message: "ลบ Facebook App เรียบร้อยแล้ว" });
+  } catch (err) {
+    console.error("Error deleting facebook app:", err);
+    res.status(500).json({ error: "ไม่สามารถลบ Facebook App ได้" });
+  }
+});
+
+// Regenerate Verify Token for Facebook App
+app.post("/api/facebook-apps/:id/regenerate-token", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid App ID" });
+    }
+
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const coll = db.collection("facebook_apps");
+
+    const newVerifyToken =
+      "vt_" +
+      Math.random().toString(36).slice(2, 10) +
+      Math.random().toString(36).slice(2, 10);
+
+    const result = await coll.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { verifyToken: newVerifyToken, updatedAt: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "ไม่พบ Facebook App ที่ระบุ" });
+    }
+
+    res.json({
+      message: "สร้าง Verify Token ใหม่เรียบร้อยแล้ว",
+      verifyToken: newVerifyToken,
+    });
+  } catch (err) {
+    console.error("Error regenerating verify token:", err);
+    res.status(500).json({ error: "ไม่สามารถสร้าง Verify Token ใหม่ได้" });
   }
 });
 

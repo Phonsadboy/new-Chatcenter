@@ -36,7 +36,6 @@ class ChatManager {
     }
 
     init() {
-        console.log('Initializing Chat Manager...');
         this.initializeSocket();
         this.setupEventListeners();
         this.loadUsers();
@@ -53,27 +52,22 @@ class ChatManager {
         this.socket = io();
 
         this.socket.on('connect', () => {
-            console.log('✅ Socket.IO connected');
             this.showToast('เชื่อมต่อสำเร็จ', 'success');
         });
 
         this.socket.on('disconnect', () => {
-            console.log('❌ Socket.IO disconnected');
             this.showToast('การเชื่อมต่อขาดหาย', 'warning');
         });
 
         this.socket.on('newMessage', (data) => {
-            console.log('📨 New message:', data);
             this.handleNewMessage(data);
         });
 
         this.socket.on('followUpTagged', (data) => {
-            console.log('⭐ Follow-up tagged:', data);
             this.handleFollowUpTagged(data);
         });
 
         this.socket.on('chatCleared', (data) => {
-            console.log('🗑️ Chat cleared:', data);
             if (data.userId === this.currentUserId) {
                 this.clearChatDisplay();
             }
@@ -81,7 +75,6 @@ class ChatManager {
         });
 
         this.socket.on('userTagsUpdated', (data) => {
-            console.log('🏷️ Tags updated:', data);
             const user = this.allUsers.find(u => u.userId === data.userId);
             if (user) {
                 user.tags = data.tags || [];
@@ -90,7 +83,6 @@ class ChatManager {
         });
 
         this.socket.on('userPurchaseStatusUpdated', (data) => {
-            console.log('🛒 Purchase status updated:', data);
             const user = this.allUsers.find(u => u.userId === data.userId);
             if (user) {
                 user.hasPurchased = data.hasPurchased;
@@ -100,7 +92,6 @@ class ChatManager {
 
         // Order events
         this.socket.on('orderExtracted', (data) => {
-            console.log('📦 Order extracted:', data);
             if (data.userId === this.currentUserId) {
                 this.loadOrders();
             }
@@ -109,14 +100,12 @@ class ChatManager {
         });
 
         this.socket.on('orderUpdated', (data) => {
-            console.log('✏️ Order updated:', data);
             if (data.userId === this.currentUserId) {
                 this.loadOrders();
             }
         });
 
         this.socket.on('orderDeleted', (data) => {
-            console.log('🗑️ Order deleted:', data);
             if (data.userId === this.currentUserId) {
                 this.loadOrders();
             }
@@ -1513,7 +1502,6 @@ class ChatManager {
     // ========================================
 
     openTemplateModal() {
-        // TODO: Implement template modal
         this.showToast('ฟีเจอร์ Template กำลังพัฒนา', 'info');
     }
 

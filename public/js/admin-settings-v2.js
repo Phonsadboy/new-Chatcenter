@@ -66,7 +66,6 @@ async function loadAllSettings() {
             loadSecuritySettings(),
             window.imageCollectionsManager?.refreshAll?.()
         ]);
-        console.log('All settings loaded');
     } catch (error) {
         console.error('Error loading settings:', error);
         showToast('เกิดข้อผิดพลาดในการโหลดการตั้งค่า', 'danger');
@@ -74,28 +73,34 @@ async function loadAllSettings() {
 }
 
 // --- Bot Management ---
+let facebookAppsCache = [];
+
 async function loadBotSettings() {
     const lineContainer = document.getElementById('line-bots-list');
-    const fbContainer = document.getElementById('facebook-bots-list');
+    const fbContainer = document.getElementById('facebook-apps-list');
 
     if (lineContainer) lineContainer.innerHTML = '<div class="text-center p-3 text-muted-v2">กำลังโหลด Line Bots...</div>';
-    if (fbContainer) fbContainer.innerHTML = '<div class="text-center p-3 text-muted-v2">กำลังโหลด Facebook Bots...</div>';
+    if (fbContainer) fbContainer.innerHTML = '<div class="text-center p-3 text-muted-v2">กำลังโหลด Facebook Apps & Pages...</div>';
 
     try {
         if (instructionLibraries.length === 0) {
             await loadInstructionLibraries();
         }
 
-        const [lineRes, fbRes] = await Promise.all([
+        const [lineRes, fbBotsRes, fbAppsRes] = await Promise.all([
             fetch('/api/line-bots'),
-            fetch('/api/facebook-bots')
+            fetch('/api/facebook-bots'),
+            fetch('/api/facebook-apps')
         ]);
 
         const lineBots = await lineRes.json();
-        const fbBots = await fbRes.json();
+        const fbBots = await fbBotsRes.json();
+        const fbApps = await fbAppsRes.json();
+
+        facebookAppsCache = fbApps; // Cache for dropdowns
 
         renderLineBots(lineBots);
-        renderFacebookBots(fbBots);
+        renderFacebookAppsAndPages(fbApps, fbBots);
     } catch (error) {
         console.error('Error loading bots:', error);
         if (lineContainer) lineContainer.innerHTML = '<div class="text-danger p-3">โหลดข้อมูลไม่สำเร็จ</div>';
@@ -142,16 +147,110 @@ function renderLineBots(bots) {
     `).join('');
 }
 
-function renderFacebookBots(bots) {
-    const container = document.getElementById('facebook-bots-list');
+// Render Facebook Apps with nested Pages
+function renderFacebookAppsAndPages(apps, bots) {
+    const container = document.getElementById('facebook-apps-list');
     if (!container) return;
 
-    if (bots.length === 0) {
-        container.innerHTML = '<div class="text-center p-4 text-muted-v2">ยังไม่มีการตั้งค่า Facebook Bot</div>';
+    // Group bots by their facebookAppId
+    const botsByApp = {};
+    const unlinkedBots = [];
+
+    bots.forEach(bot => {
+        const appId = bot.facebookAppId?.toString() || bot.facebookApp?._id?.toString();
+        if (appId) {
+            if (!botsByApp[appId]) botsByApp[appId] = [];
+            botsByApp[appId].push(bot);
+        } else {
+            unlinkedBots.push(bot);
+        }
+    });
+
+    if (apps.length === 0 && unlinkedBots.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-4 text-muted-v2">
+                <i class="fab fa-facebook fa-2x mb-2 opacity-50"></i>
+                <p class="mb-2">ยังไม่มี Facebook App</p>
+                <small>สร้าง App ก่อน แล้วเพิ่ม Pages ที่ต้องการเชื่อมต่อ</small>
+            </div>
+        `;
         return;
     }
 
-    container.innerHTML = bots.map(bot => `
+    let html = '';
+
+    // Render each app with its pages
+    apps.forEach(app => {
+        const appPages = botsByApp[app._id.toString()] || [];
+        html += `
+            <div class="fb-app-card mb-3">
+                <div class="fb-app-header" onclick="toggleAppPages('${app._id}')">
+                    <div class="fb-app-info">
+                        <div class="fb-app-icon"><i class="fas fa-mobile-alt"></i></div>
+                        <div class="fb-app-details">
+                            <div class="fb-app-name">
+                                ${escapeHtml(app.name)}
+                                <span class="badge bg-secondary ms-2" style="font-size: 0.7em;">${appPages.length} Page${appPages.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div class="fb-app-meta text-muted small">
+                                App ID: ${escapeHtml(app.appId || 'N/A')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="fb-app-actions">
+                        <button class="btn-ghost-sm" title="คัดลอก Webhook URL" onclick="event.stopPropagation(); copyText('${escapeHtml(app.webhookUrl || '')}', 'Webhook URL')">
+                            <i class="fas fa-link"></i>
+                        </button>
+                        <button class="btn-ghost-sm" title="แก้ไข App" onclick="event.stopPropagation(); openEditFacebookAppModal('${app._id}')">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <i class="fas fa-chevron-down fb-app-toggle" id="toggle-icon-${app._id}"></i>
+                    </div>
+                </div>
+                <div class="fb-app-pages" id="pages-${app._id}" style="display: none;">
+                    <div class="fb-pages-toolbar">
+                        <small class="text-muted">Pages เชื่อมต่อกับ App นี้</small>
+                        <button class="btn btn-sm btn-outline-primary" onclick="openAddFacebookBotModalForApp('${app._id}')">
+                            <i class="fas fa-plus me-1"></i>เพิ่ม Page
+                        </button>
+                    </div>
+                    ${appPages.length === 0 ?
+                '<div class="text-center text-muted small py-3">ยังไม่มี Page เชื่อมต่อ</div>' :
+                appPages.map(bot => renderFacebookBotItem(bot)).join('')
+            }
+                </div>
+            </div>
+        `;
+    });
+
+    // Render unlinked bots (legacy bots without app)
+    if (unlinkedBots.length > 0) {
+        html += `
+            <div class="fb-app-card mb-3 border-warning">
+                <div class="fb-app-header" onclick="toggleAppPages('unlinked')">
+                    <div class="fb-app-info">
+                        <div class="fb-app-icon text-warning"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="fb-app-details">
+                            <div class="fb-app-name">Pages ที่ยังไม่เชื่อมกับ App</div>
+                            <div class="fb-app-meta text-muted small">กรุณาเลือก App สำหรับ Pages เหล่านี้</div>
+                        </div>
+                    </div>
+                    <div class="fb-app-actions">
+                        <i class="fas fa-chevron-down fb-app-toggle" id="toggle-icon-unlinked"></i>
+                    </div>
+                </div>
+                <div class="fb-app-pages" id="pages-unlinked" style="display: none;">
+                    ${unlinkedBots.map(bot => renderFacebookBotItem(bot)).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderFacebookBotItem(bot) {
+    return `
         <div class="bot-item-compact">
             <div class="bot-channel facebook"><i class="fab fa-facebook-f"></i></div>
             <div class="bot-main">
@@ -163,10 +262,8 @@ function renderFacebookBots(bots) {
                 </div>
                 <div class="bot-subtext">
                     Model: ${escapeHtml(bot.aiModel || 'gpt-5')}
-                    • API: ${bot.aiConfig?.apiMode === 'chat' ? 'Chat' : 'Responses'}
-                    • Page: ${escapeHtml(bot.pageId || 'N/A')}
+                    • Page ID: ${escapeHtml(bot.pageId || 'N/A')}
                 </div>
-                ${buildBotInlineControls(bot, 'facebook')}
             </div>
             <div class="bot-actions-compact">
                 <label class="toggle-switch mb-0">
@@ -178,7 +275,33 @@ function renderFacebookBots(bots) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+}
+
+function toggleAppPages(appId) {
+    const pagesEl = document.getElementById(`pages-${appId}`);
+    const toggleIcon = document.getElementById(`toggle-icon-${appId}`);
+    if (pagesEl) {
+        const isHidden = pagesEl.style.display === 'none';
+        pagesEl.style.display = isHidden ? 'block' : 'none';
+        if (toggleIcon) {
+            toggleIcon.classList.toggle('fa-chevron-down', !isHidden);
+            toggleIcon.classList.toggle('fa-chevron-up', isHidden);
+        }
+    }
+}
+
+function copyText(text, label) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(`คัดลอก ${label} แล้ว`, 'success');
+    }).catch(() => {
+        showToast(`ไม่สามารถคัดลอก ${label} ได้`, 'danger');
+    });
+}
+
+// Keep legacy function for backward compatibility
+function renderFacebookBots(bots) {
+    renderFacebookAppsAndPages(facebookAppsCache || [], bots);
 }
 
 async function toggleBotStatus(type, id, isActive) {
@@ -368,8 +491,8 @@ async function saveLineBot() {
     }
 }
 
-// Facebook Bot
-window.openAddFacebookBotModal = async function () {
+// Facebook Bot (Page)
+window.openAddFacebookBotModal = async function (preselectedAppId = null) {
     const form = document.getElementById('facebookBotForm');
     if (form) form.reset();
 
@@ -391,36 +514,16 @@ window.openAddFacebookBotModal = async function () {
     // Populate API key dropdown
     await populateApiKeyDropdowns('facebookBotApiKeyId');
 
+    // Populate Facebook App dropdown
+    await populateFacebookAppDropdown('facebookBotAppId', preselectedAppId || '');
+
     const title = document.getElementById('addFacebookBotModalLabel');
-    if (title) title.innerHTML = '<i class="fab fa-facebook me-2"></i>เพิ่ม Facebook Bot ใหม่';
+    if (title) title.innerHTML = '<i class="fab fa-facebook me-2"></i>เพิ่ม Facebook Page ใหม่';
 
     const modalEl = document.getElementById('addFacebookBotModal');
     if (!modalEl) return;
     const modal = new bootstrap.Modal(modalEl);
     modal.show();
-
-    // ขอ webhook/verify token ล่วงหน้าเหมือนหน้าเก่า
-    (async () => {
-        try {
-            const res = await fetch('/api/facebook-bots/init', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data?.error || 'ไม่สามารถเตรียมข้อมูล Webhook ได้');
-
-            if (idInput) idInput.value = data.id;
-            const webhookInput = document.getElementById('facebookWebhookUrl');
-            const verifyInput = document.getElementById('facebookVerifyToken');
-            if (webhookInput) webhookInput.value = data.webhookUrl || '';
-            if (verifyInput) verifyInput.value = data.verifyToken || '';
-            showToast('สร้าง Webhook URL และ Verify Token สำเร็จ', 'success');
-        } catch (err) {
-            console.error('init facebook bot error', err);
-            showToast('ไม่สามารถสร้าง Webhook URL / Verify Token ได้', 'danger');
-        }
-    })();
 };
 
 window.openEditFacebookBotModal = async function (id) {
@@ -436,13 +539,15 @@ window.openEditFacebookBotModal = async function (id) {
         document.getElementById('facebookBotDescription').value = bot.description || '';
         document.getElementById('facebookPageId').value = bot.pageId;
         document.getElementById('facebookAccessToken').value = bot.accessToken;
-        document.getElementById('facebookVerifyToken').value = bot.verifyToken;
-        document.getElementById('facebookWebhookUrl').value = bot.webhookUrl || '';
 
-        const aiModelSelect = document.getElementById('facebookBotAiModel'); // Corrected ID
+        // Populate and set Facebook App dropdown
+        const appIdValue = bot.facebookAppId?.toString() || bot.facebookApp?._id?.toString() || '';
+        await populateFacebookAppDropdown('facebookBotAppId', appIdValue);
+
+        const aiModelSelect = document.getElementById('facebookBotAiModel');
         if (aiModelSelect) aiModelSelect.value = bot.aiModel;
 
-        const defaultCheck = document.getElementById('facebookBotDefault'); // Corrected ID
+        const defaultCheck = document.getElementById('facebookBotDefault');
         if (defaultCheck) defaultCheck.checked = bot.isDefault;
 
         setAiConfigUI('facebook', bot.aiConfig || defaultAiConfig);
@@ -456,7 +561,7 @@ window.openEditFacebookBotModal = async function (id) {
         if (datasetIdInput) datasetIdInput.value = bot.datasetId || '';
 
         const title = document.getElementById('addFacebookBotModalLabel');
-        if (title) title.innerHTML = '<i class="fab fa-facebook me-2"></i>แก้ไข Facebook Bot';
+        if (title) title.innerHTML = '<i class="fab fa-facebook me-2"></i>แก้ไข Facebook Page';
 
         const deleteBtn = document.getElementById('deleteFacebookBotBtn');
         if (deleteBtn) deleteBtn.style.display = 'inline-block';
@@ -472,15 +577,26 @@ window.openEditFacebookBotModal = async function (id) {
 };
 
 async function saveFacebookBot() {
+    const form = document.getElementById('facebookBotForm');
+    if (form && !form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
     const botId = document.getElementById('facebookBotId').value;
+    const facebookAppId = document.getElementById('facebookBotAppId')?.value || '';
+
+    if (!facebookAppId) {
+        showToast('กรุณาเลือก Facebook App ก่อนบันทึก', 'danger');
+        return;
+    }
 
     const botData = {
         name: document.getElementById('facebookBotName').value,
         description: document.getElementById('facebookBotDescription').value,
         pageId: document.getElementById('facebookPageId').value,
         accessToken: document.getElementById('facebookAccessToken').value,
-        verifyToken: document.getElementById('facebookVerifyToken').value,
-        webhookUrl: document.getElementById('facebookWebhookUrl').value,
+        facebookAppId,
         aiModel: document.getElementById('facebookBotAiModel').value,
         isDefault: document.getElementById('facebookBotDefault').checked,
         aiConfig: readAiConfigFromUI('facebook'),
@@ -1840,3 +1956,332 @@ initNavigation = function () {
         observer.observe(apiKeysSection, { attributes: true });
     }
 };
+
+// =============================================
+// Facebook Apps Management Functions
+// =============================================
+
+// Helper to populate Facebook App dropdown in bot modal
+async function populateFacebookAppDropdown(selectId, selectedValue = '') {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    // Clear existing options except first (default)
+    select.innerHTML = '<option value="">-- เลือก Facebook App --</option>';
+
+    try {
+        // Use cached apps if available, otherwise fetch
+        let apps = facebookAppsCache;
+        if (!apps || apps.length === 0) {
+            const response = await fetch('/api/facebook-apps');
+            if (response.ok) {
+                apps = await response.json();
+                facebookAppsCache = apps;
+            }
+        }
+
+        // Add active apps as options
+        apps.filter(app => app.status === 'active').forEach(app => {
+            const option = document.createElement('option');
+            option.value = app._id;
+            option.textContent = `${app.name} (${app.appId})`;
+            if (selectedValue === app._id.toString()) option.selected = true;
+            select.appendChild(option);
+        });
+
+        // Update webhook info when app is selected
+        select.addEventListener('change', function () {
+            updateSelectedAppInfo(this.value);
+        });
+
+        // Initial update
+        if (selectedValue) {
+            updateSelectedAppInfo(selectedValue);
+        }
+    } catch (error) {
+        console.error('[Facebook Apps] Error loading apps for dropdown:', error);
+    }
+}
+
+function updateSelectedAppInfo(appId) {
+    const infoEl = document.getElementById('selectedAppWebhookInfo');
+    if (!infoEl) return;
+
+    if (!appId) {
+        infoEl.innerHTML = '';
+        return;
+    }
+
+    const app = facebookAppsCache.find(a => a._id.toString() === appId);
+    if (app) {
+        infoEl.innerHTML = `<br><small>Webhook: <code>${app.webhookUrl || 'N/A'}</code></small>`;
+    } else {
+        infoEl.innerHTML = '';
+    }
+}
+
+// Open Add Facebook App Modal
+window.openAddFacebookAppModal = function () {
+    const form = document.getElementById('facebookAppForm');
+    if (form) form.reset();
+
+    document.getElementById('facebookAppId').value = '';
+    document.getElementById('facebookAppVerifyToken').value = '';
+    document.getElementById('facebookAppWebhookUrl').value = '';
+
+    document.getElementById('facebookAppModalTitle').textContent = 'สร้าง Facebook App ใหม่';
+    document.getElementById('deleteFacebookAppBtn').style.display = 'none';
+    document.getElementById('connectedPagesSection').style.display = 'none';
+    document.getElementById('facebookAppSetupGuide').style.display = 'block';
+
+    // Disable copy buttons for new app
+    const copyVerifyBtn = document.getElementById('copyVerifyTokenBtn');
+    const copyWebhookBtn = document.getElementById('copyWebhookUrlBtn');
+    const regenerateBtn = document.getElementById('regenerateVerifyTokenBtn');
+    if (copyVerifyBtn) copyVerifyBtn.disabled = true;
+    if (copyWebhookBtn) copyWebhookBtn.disabled = true;
+    if (regenerateBtn) regenerateBtn.disabled = true;
+
+    const modalEl = document.getElementById('addFacebookAppModal');
+    if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+};
+
+// Open Edit Facebook App Modal
+window.openEditFacebookAppModal = async function (id) {
+    try {
+        const res = await fetch(`/api/facebook-apps/${id}`);
+        if (!res.ok) throw new Error('Failed to fetch app');
+        const app = await res.json();
+
+        document.getElementById('facebookAppId').value = app._id;
+        document.getElementById('facebookAppName').value = app.name;
+        document.getElementById('facebookAppAppId').value = app.appId;
+        document.getElementById('facebookAppAppSecret').value = app.appSecret || '';
+        document.getElementById('facebookAppVerifyToken').value = app.verifyToken || '';
+        document.getElementById('facebookAppWebhookUrl').value = app.webhookUrl || '';
+
+        document.getElementById('facebookAppModalTitle').textContent = 'แก้ไข Facebook App';
+        document.getElementById('deleteFacebookAppBtn').style.display = 'inline-block';
+        document.getElementById('connectedPagesSection').style.display = 'block';
+        document.getElementById('facebookAppSetupGuide').style.display = 'none';
+
+        // Enable copy buttons
+        const copyVerifyBtn = document.getElementById('copyVerifyTokenBtn');
+        const copyWebhookBtn = document.getElementById('copyWebhookUrlBtn');
+        const regenerateBtn = document.getElementById('regenerateVerifyTokenBtn');
+        if (copyVerifyBtn) copyVerifyBtn.disabled = false;
+        if (copyWebhookBtn) copyWebhookBtn.disabled = false;
+        if (regenerateBtn) regenerateBtn.disabled = false;
+
+        // Render connected pages
+        renderConnectedPages(app.connectedPages || []);
+
+        const modalEl = document.getElementById('addFacebookAppModal');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+    } catch (error) {
+        console.error('Error loading Facebook App:', error);
+        showToast('ไม่สามารถโหลดข้อมูล Facebook App ได้', 'danger');
+    }
+};
+
+function renderConnectedPages(pages) {
+    const container = document.getElementById('connectedPagesList');
+    if (!container) return;
+
+    if (pages.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted small py-3">ยังไม่มี Page เชื่อมต่อ</div>';
+        return;
+    }
+
+    container.innerHTML = pages.map(page => `
+        <div class="list-group-item d-flex justify-content-between align-items-center" style="background: var(--surface-2);">
+            <div>
+                <i class="fab fa-facebook-f text-primary me-2"></i>
+                <strong>${escapeHtml(page.name)}</strong>
+                <small class="text-muted ms-2">Page ID: ${escapeHtml(page.pageId || 'N/A')}</small>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="openEditFacebookBotModal('${page._id}')">
+                <i class="fas fa-edit"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Save Facebook App
+window.saveFacebookApp = async function () {
+    const appId = document.getElementById('facebookAppId').value;
+    const isEdit = !!appId;
+
+    const appData = {
+        name: document.getElementById('facebookAppName').value,
+        appId: document.getElementById('facebookAppAppId').value,
+        appSecret: document.getElementById('facebookAppAppSecret').value,
+        verifyToken: document.getElementById('facebookAppVerifyToken').value
+    };
+
+    if (!appData.name || !appData.appId) {
+        showToast('กรุณากรอกชื่อ App และ App ID', 'danger');
+        return;
+    }
+
+    const url = isEdit ? `/api/facebook-apps/${appId}` : '/api/facebook-apps';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    try {
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appData)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+
+        showToast(isEdit ? 'อัปเดต Facebook App เรียบร้อยแล้ว' : 'สร้าง Facebook App เรียบร้อยแล้ว', 'success');
+
+        // Update form with generated values for new app
+        if (!isEdit && data.webhookUrl) {
+            document.getElementById('facebookAppId').value = data._id;
+            document.getElementById('facebookAppWebhookUrl').value = data.webhookUrl;
+            document.getElementById('facebookAppVerifyToken').value = data.verifyToken;
+
+            // Enable copy buttons
+            const copyVerifyBtn = document.getElementById('copyVerifyTokenBtn');
+            const copyWebhookBtn = document.getElementById('copyWebhookUrlBtn');
+            const regenerateBtn = document.getElementById('regenerateVerifyTokenBtn');
+            if (copyVerifyBtn) copyVerifyBtn.disabled = false;
+            if (copyWebhookBtn) copyWebhookBtn.disabled = false;
+            if (regenerateBtn) regenerateBtn.disabled = false;
+
+            document.getElementById('facebookAppModalTitle').textContent = 'แก้ไข Facebook App';
+            document.getElementById('deleteFacebookAppBtn').style.display = 'inline-block';
+            document.getElementById('facebookAppSetupGuide').style.display = 'none';
+            document.getElementById('connectedPagesSection').style.display = 'block';
+
+            showToast('กรุณาคัดลอก Webhook URL และ Verify Token ไปตั้งค่าใน Facebook App', 'info');
+        } else {
+            const modalEl = document.getElementById('addFacebookAppModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+
+        // Refresh apps cache and list
+        facebookAppsCache = [];
+        loadBotSettings();
+    } catch (error) {
+        console.error('Error saving Facebook App:', error);
+        showToast(error.message || 'ไม่สามารถบันทึก Facebook App ได้', 'danger');
+    }
+};
+
+// Delete Facebook App
+window.deleteFacebookApp = async function () {
+    const appId = document.getElementById('facebookAppId').value;
+    if (!appId) return;
+
+    if (!confirm('ต้องการลบ Facebook App นี้หรือไม่?\n\nหมายเหตุ: ไม่สามารถลบได้หากยังมี Pages เชื่อมต่ออยู่')) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/facebook-apps/${appId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'ลบไม่สำเร็จ');
+
+        showToast('ลบ Facebook App เรียบร้อยแล้ว', 'success');
+
+        const modalEl = document.getElementById('addFacebookAppModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        facebookAppsCache = [];
+        loadBotSettings();
+    } catch (error) {
+        console.error('Error deleting Facebook App:', error);
+        showToast(error.message || 'ไม่สามารถลบ Facebook App ได้', 'danger');
+    }
+};
+
+// Regenerate Verify Token
+window.regenerateVerifyToken = async function () {
+    const appId = document.getElementById('facebookAppId').value;
+    if (!appId) {
+        showToast('กรุณาบันทึก App ก่อนเพื่อสร้าง Verify Token ใหม่', 'warning');
+        return;
+    }
+
+    if (!confirm('ต้องการสร้าง Verify Token ใหม่หรือไม่?\n\nหมายเหตุ: หลังจากสร้างใหม่ คุณต้องอัปเดต Token ใน Facebook App ด้วย')) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/facebook-apps/${appId}/regenerate-token`, {
+            method: 'POST'
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'สร้าง Token ใหม่ไม่สำเร็จ');
+
+        document.getElementById('facebookAppVerifyToken').value = data.verifyToken;
+        showToast('สร้าง Verify Token ใหม่แล้ว กรุณาอัปเดตใน Facebook App', 'success');
+    } catch (error) {
+        console.error('Error regenerating verify token:', error);
+        showToast(error.message || 'ไม่สามารถสร้าง Verify Token ใหม่ได้', 'danger');
+    }
+};
+
+// Copy to clipboard helper
+window.copyToClipboard = function (inputId, label) {
+    const input = document.getElementById(inputId);
+    if (!input || !input.value) {
+        showToast(`ไม่มี ${label} ให้คัดลอก`, 'warning');
+        return;
+    }
+
+    navigator.clipboard.writeText(input.value).then(() => {
+        showToast(`คัดลอก ${label} แล้ว`, 'success');
+    }).catch(() => {
+        showToast(`ไม่สามารถคัดลอก ${label} ได้`, 'danger');
+    });
+};
+
+// Toggle password visibility helper
+window.togglePasswordVisibility = function (inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+    } else {
+        input.type = 'password';
+        btn.innerHTML = '<i class="fas fa-eye"></i>';
+    }
+};
+
+// Open add Facebook Bot modal with preselected App
+window.openAddFacebookBotModalForApp = function (appId) {
+    window.openAddFacebookBotModal(appId);
+};
+
+// Setup event listeners for Facebook App modal
+document.addEventListener('DOMContentLoaded', function () {
+    const saveFbAppBtn = document.getElementById('saveFacebookAppBtn');
+    if (saveFbAppBtn) {
+        saveFbAppBtn.addEventListener('click', saveFacebookApp);
+    }
+
+    const deleteFbAppBtn = document.getElementById('deleteFacebookAppBtn');
+    if (deleteFbAppBtn) {
+        deleteFbAppBtn.addEventListener('click', deleteFacebookApp);
+    }
+});

@@ -8,66 +8,66 @@ class ErrorHandler {
         this.toastContainer = null;
         this.init();
     }
-    
+
     init() {
         // สร้าง toast container
         this.createToastContainer();
-        
+
         // จับ unhandled errors
         window.addEventListener('error', (event) => {
             console.error('Uncaught error:', event.error);
             this.showError('เกิดข้อผิดพลาดในระบบ กรุณารีเฟรชหน้าเว็บ');
         });
-        
+
         // จับ unhandled promise rejections
         window.addEventListener('unhandledrejection', (event) => {
             console.error('Unhandled promise rejection:', event.reason);
             this.showError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
         });
     }
-    
+
     createToastContainer() {
         if (this.toastContainer) return;
-        
+
         this.toastContainer = document.createElement('div');
         this.toastContainer.className = 'toast-container';
         this.toastContainer.id = 'errorToastContainer';
         document.body.appendChild(this.toastContainer);
     }
-    
+
     /**
      * แสดง Toast Notification
      */
     showToast(message, type = 'info', duration = 3000) {
         const toast = this.createToast(message, type);
         this.toastContainer.appendChild(toast);
-        
+
         // แสดง toast
         setTimeout(() => {
             toast.classList.add('show');
         }, 10);
-        
+
         // ซ่อน toast
         setTimeout(() => {
             this.hideToast(toast);
         }, duration);
-        
+
         return toast;
     }
-    
+
     createToast(message, type) {
         const toast = document.createElement('div');
         toast.className = `toast-notification toast-${type}`;
-        
+
         const icons = {
             success: 'fa-check-circle',
             error: 'fa-exclamation-circle',
             warning: 'fa-exclamation-triangle',
             info: 'fa-info-circle'
         };
-        
+
         const icon = icons[type] || icons.info;
-        
+
         toast.innerHTML = `
             <div class="toast-icon">
                 <i class="fas ${icon}"></i>
@@ -77,10 +77,10 @@ class ErrorHandler {
                 <i class="fas fa-times"></i>
             </button>
         `;
-        
+
         return toast;
     }
-    
+
     hideToast(toast) {
         toast.classList.remove('show');
         toast.classList.add('hide');
@@ -90,43 +90,43 @@ class ErrorHandler {
             }
         }, 300);
     }
-    
+
     /**
      * แสดง Error
      */
     showError(message) {
         return this.showToast(message, 'error', 5000);
     }
-    
+
     /**
      * แสดง Success
      */
     showSuccess(message) {
         return this.showToast(message, 'success', 3000);
     }
-    
+
     /**
      * แสดง Warning
      */
     showWarning(message) {
         return this.showToast(message, 'warning', 4000);
     }
-    
+
     /**
      * แสดง Info
      */
     showInfo(message) {
         return this.showToast(message, 'info', 3000);
     }
-    
+
     /**
      * Handle API Errors
      */
     handleApiError(error, customMessage = null) {
         console.error('API Error:', error);
-        
+
         let message = customMessage || 'เกิดข้อผิดพลาด';
-        
+
         if (error.message) {
             // Parse error message
             if (error.message.includes('Failed to fetch')) {
@@ -143,18 +143,18 @@ class ErrorHandler {
                 message = 'การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง';
             }
         }
-        
+
         this.showError(message);
         return message;
     }
-    
+
     /**
      * Handle Network Errors
      */
     handleNetworkError() {
         this.showError('ไม่มีการเชื่อมต่ออินเทอร์เน็ต กรุณาตรวจสอบการเชื่อมต่อ');
     }
-    
+
     /**
      * Handle Validation Errors
      */
@@ -162,7 +162,7 @@ class ErrorHandler {
         const fieldElement = document.querySelector(`[name="${field}"]`);
         if (fieldElement) {
             fieldElement.classList.add('is-invalid');
-            
+
             // สร้าง error message
             let errorDiv = fieldElement.nextElementSibling;
             if (!errorDiv || !errorDiv.classList.contains('invalid-feedback')) {
@@ -172,10 +172,10 @@ class ErrorHandler {
             }
             errorDiv.textContent = message;
         }
-        
+
         this.showError(message);
     }
-    
+
     /**
      * Clear Validation Errors
      */
@@ -187,7 +187,7 @@ class ErrorHandler {
             el.remove();
         });
     }
-    
+
     /**
      * Confirm Dialog
      */
@@ -207,12 +207,12 @@ class ErrorHandler {
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(modal);
-            
+
             // แสดง modal
             setTimeout(() => modal.classList.add('show'), 10);
-            
+
             // Handle actions
             modal.addEventListener('click', (e) => {
                 const action = e.target.closest('[data-action]')?.dataset.action;
@@ -253,6 +253,3 @@ window.showInfo = (message) => {
 window.confirmAction = (message, title) => {
     return window.errorHandler.confirm(message, title);
 };
-
-console.log('✅ Error handler loaded');
-

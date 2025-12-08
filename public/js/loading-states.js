@@ -14,7 +14,7 @@ class LoadingStateManager {
             lg: '32px',
             xl: '48px'
         };
-        
+
         const colors = {
             primary: '#68B984',
             white: '#ffffff',
@@ -22,7 +22,7 @@ class LoadingStateManager {
             success: '#68B984',
             danger: '#FF6868'
         };
-        
+
         return `
             <div class="loading-spinner loading-spinner-${size}" 
                  style="--spinner-size: ${sizes[size]}; --spinner-color: ${colors[color] || colors.primary};">
@@ -32,7 +32,7 @@ class LoadingStateManager {
             </div>
         `;
     }
-    
+
     /**
      * 2. Skeleton Loading
      */
@@ -69,16 +69,16 @@ class LoadingStateManager {
                 </div>
             `
         };
-        
+
         return Array(count).fill(skeletons[type] || skeletons.text).join('');
     }
-    
+
     /**
      * 3. Progress Bar
      */
     static createProgressBar(current, total, label = '') {
         const percent = Math.min(100, Math.round((current / total) * 100));
-        
+
         return `
             <div class="progress-container">
                 ${label ? `<div class="progress-label">${label}</div>` : ''}
@@ -93,7 +93,7 @@ class LoadingStateManager {
             </div>
         `;
     }
-    
+
     /**
      * 4. Loading Overlay
      */
@@ -107,39 +107,39 @@ class LoadingStateManager {
                 ${cancellable ? '<button class="btn btn-sm btn-outline-secondary mt-3" onclick="this.closest(\'.loading-overlay\').remove()">ยกเลิก</button>' : ''}
             </div>
         `;
-        
-        const targetContainer = typeof container === 'string' 
-            ? document.querySelector(container) 
+
+        const targetContainer = typeof container === 'string'
+            ? document.querySelector(container)
             : container;
-        
+
         if (targetContainer) {
             targetContainer.style.position = 'relative';
             targetContainer.appendChild(overlay);
         }
-        
+
         return overlay;
     }
-    
+
     static hideOverlay(container) {
-        const targetContainer = typeof container === 'string' 
-            ? document.querySelector(container) 
+        const targetContainer = typeof container === 'string'
+            ? document.querySelector(container)
             : container;
-            
+
         if (!targetContainer) return;
-        
+
         const overlay = targetContainer.querySelector('.loading-overlay');
         if (overlay) {
             overlay.classList.add('fade-out');
             setTimeout(() => overlay.remove(), 300);
         }
     }
-    
+
     /**
      * 5. Button Loading State
      */
     static setButtonLoading(button, loading = true, text = '') {
         if (!button) return;
-        
+
         if (loading) {
             button.dataset.originalText = button.innerHTML;
             button.disabled = true;
@@ -154,7 +154,7 @@ class LoadingStateManager {
             button.innerHTML = button.dataset.originalText || text;
         }
     }
-    
+
     /**
      * 6. Dots Animation
      */
@@ -165,7 +165,7 @@ class LoadingStateManager {
             </span>
         `;
     }
-    
+
     /**
      * 7. Empty State
      */
@@ -177,7 +177,7 @@ class LoadingStateManager {
             actionText = '',
             actionCallback = null
         } = config;
-        
+
         return `
             <div class="empty-state">
                 <div class="empty-icon">
@@ -189,7 +189,7 @@ class LoadingStateManager {
             </div>
         `;
     }
-    
+
     /**
      * 8. Error State
      */
@@ -209,6 +209,3 @@ class LoadingStateManager {
 
 // Export
 window.LoadingStateManager = LoadingStateManager;
-
-console.log('✅ Loading state manager loaded');
-

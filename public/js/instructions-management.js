@@ -215,7 +215,7 @@ async function manageInstructions(botId) {
   currentBotType = "line";
   currentBotId = botId;
   currentBotInstructions = [];
-  
+
   // Setup modal cleanup listeners
   setupModalEventListeners();
 
@@ -225,7 +225,7 @@ async function manageInstructions(botId) {
     if (botResponse.ok) {
       const bot = await botResponse.json();
       currentBotInstructions = cloneBotInstructionSelections(bot.selectedInstructions);
-      
+
       // Load keyword settings
       loadKeywordSettingsToForm(bot.keywordSettings);
     }
@@ -264,7 +264,7 @@ async function manageFacebookInstructions(botId) {
   currentBotType = "facebook";
   currentBotId = botId;
   currentBotInstructions = [];
-  
+
   // Setup modal cleanup listeners
   setupModalEventListeners();
 
@@ -274,7 +274,7 @@ async function manageFacebookInstructions(botId) {
     if (botResponse.ok) {
       const bot = await botResponse.json();
       currentBotInstructions = cloneBotInstructionSelections(bot.selectedInstructions);
-      
+
       // Load keyword settings
       loadKeywordSettingsToForm(bot.keywordSettings);
     }
@@ -333,8 +333,8 @@ function displayInstructionLibraries() {
     const selectedIcon = isSelected
       ? '<i class="fas fa-dot-circle text-primary me-2"></i>'
       : '<i class="far fa-circle text-muted me-2"></i>';
-    const selectedBadge = isSelected 
-      ? '<span class="badge bg-primary ms-2"><i class="fas fa-check me-1"></i>ใช้งานอยู่</span>' 
+    const selectedBadge = isSelected
+      ? '<span class="badge bg-primary ms-2"><i class="fas fa-check me-1"></i>ใช้งานอยู่</span>'
       : '';
     const typeBadgeLabel =
       library.source === INSTRUCTION_SOURCE.V2
@@ -353,12 +353,12 @@ function displayInstructionLibraries() {
       if (library.convertedInstructionId) {
         const convertedAtText = library.convertedAt
           ? new Date(library.convertedAt).toLocaleString("th-TH", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
           : "";
         actionArea = `
                 <div class="text-muted small mt-2">
@@ -412,15 +412,15 @@ function displayInstructionLibraries() {
       const selectionKey = this.dataset.selectionKey;
       toggleLibrarySelection(selectionKey);
     });
-    
+
     // Add hover effect
-    item.addEventListener("mouseenter", function() {
+    item.addEventListener("mouseenter", function () {
       if (!this.classList.contains("bg-light")) {
         this.style.backgroundColor = "#f8f9fa";
       }
     });
-    
-    item.addEventListener("mouseleave", function() {
+
+    item.addEventListener("mouseleave", function () {
       if (!this.classList.contains("bg-light")) {
         this.style.backgroundColor = "";
       }
@@ -455,7 +455,7 @@ function displaySelectedInstructions() {
   }
 
   let html = '<div class="mb-2"><strong>Instruction ที่เลือกใช้:</strong></div>';
-  
+
   const library = getCurrentSelectedLibrary();
   if (library) {
     const selectionKey = getLibrarySelectionKey(library);
@@ -579,13 +579,13 @@ function updateInstructionCounts() {
     const totalLibraries = Array.isArray(availableLibraries) ? availableLibraries.length : 0;
     librariesCountEl.textContent = totalLibraries;
   }
-  
+
   // Update selected count
   const selectedCountEl = document.getElementById('selectedCount');
   if (selectedCountEl) {
     const count = currentBotInstructions.length;
     selectedCountEl.textContent = `${count} / 1`;
-    
+
     // Change badge color based on selection
     selectedCountEl.className = 'badge';
     if (count === 0) {
@@ -604,26 +604,26 @@ function loadKeywordSettingsToForm(keywordSettings) {
     if (typeof setting === 'string') return { keyword: setting, response: '' };
     return { keyword: setting.keyword || '', response: setting.response || '' };
   };
-  
+
   const enableAI = normalizeKeywordSetting(keywordSettings?.enableAI);
   const disableAI = normalizeKeywordSetting(keywordSettings?.disableAI);
   const disableFollowUp = normalizeKeywordSetting(keywordSettings?.disableFollowUp);
-  
+
   const keywordEnableAI = document.getElementById('instructionsKeywordEnableAI');
   const keywordEnableAIResponse = document.getElementById('instructionsKeywordEnableAIResponse');
-  
+
   const keywordDisableAI = document.getElementById('instructionsKeywordDisableAI');
   const keywordDisableAIResponse = document.getElementById('instructionsKeywordDisableAIResponse');
-  
+
   const keywordDisableFollowUp = document.getElementById('instructionsKeywordDisableFollowUp');
   const keywordDisableFollowUpResponse = document.getElementById('instructionsKeywordDisableFollowUpResponse');
-  
+
   if (keywordEnableAI) keywordEnableAI.value = enableAI.keyword || '';
   if (keywordEnableAIResponse) keywordEnableAIResponse.value = enableAI.response || '';
-  
+
   if (keywordDisableAI) keywordDisableAI.value = disableAI.keyword || '';
   if (keywordDisableAIResponse) keywordDisableAIResponse.value = disableAI.response || '';
-  
+
   if (keywordDisableFollowUp) keywordDisableFollowUp.value = disableFollowUp.keyword || '';
   if (keywordDisableFollowUpResponse) keywordDisableFollowUpResponse.value = disableFollowUp.response || '';
 }
@@ -654,13 +654,13 @@ async function saveSelectedInstructions() {
     // Save keyword settings
     const keywordEnableAI = document.getElementById('instructionsKeywordEnableAI');
     const keywordEnableAIResponse = document.getElementById('instructionsKeywordEnableAIResponse');
-    
+
     const keywordDisableAI = document.getElementById('instructionsKeywordDisableAI');
     const keywordDisableAIResponse = document.getElementById('instructionsKeywordDisableAIResponse');
-    
+
     const keywordDisableFollowUp = document.getElementById('instructionsKeywordDisableFollowUp');
     const keywordDisableFollowUpResponse = document.getElementById('instructionsKeywordDisableFollowUpResponse');
-    
+
     const keywordSettings = {
       enableAI: {
         keyword: keywordEnableAI?.value?.trim() || '',
@@ -754,7 +754,6 @@ async function loadOverviewData() {
 function displayLineBotOverview(lineBots) {
   const container = document.getElementById("lineBotOverview");
   if (!container) {
-    console.log("Line Bot Overview container not found");
     return;
   }
 
@@ -784,7 +783,6 @@ function displayLineBotOverview(lineBots) {
 function displayFacebookBotOverview(facebookBots) {
   const container = document.getElementById("facebookBotOverview");
   if (!container) {
-    console.log("Facebook Bot Overview container not found");
     return;
   }
 
@@ -815,7 +813,6 @@ function displayFacebookBotOverview(facebookBots) {
 function displayAiModelOverview() {
   const container = document.getElementById("aiModelOverview");
   if (!container) {
-    console.log("AI Model Overview container not found");
     return;
   }
 
@@ -837,7 +834,6 @@ function displayAiModelOverview() {
 function displayInstructionsOverview(libraries) {
   const container = document.getElementById("instructionsOverview");
   if (!container) {
-    console.log("Instructions Overview container not found");
     return;
   }
 
@@ -873,7 +869,6 @@ function displayInstructionsOverview(libraries) {
 function displaySecurityOverview() {
   const container = document.getElementById("securityOverview");
   if (!container) {
-    console.log("Security Overview container not found");
     return;
   }
 

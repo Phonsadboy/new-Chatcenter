@@ -25,7 +25,7 @@ function debounce(func, wait = 300) {
  */
 function throttle(func, limit = 300) {
     let inThrottle;
-    return function(...args) {
+    return function (...args) {
         if (!inThrottle) {
             func.apply(this, args);
             inThrottle = true;
@@ -42,35 +42,35 @@ class RequestCache {
         this.cache = new Map();
         this.ttl = ttl;
     }
-    
+
     set(key, value) {
         this.cache.set(key, {
             value,
             timestamp: Date.now()
         });
     }
-    
+
     get(key) {
         const cached = this.cache.get(key);
         if (!cached) return null;
-        
+
         // ตรวจสอบว่าหมดอายุหรือยัง
         if (Date.now() - cached.timestamp > this.ttl) {
             this.cache.delete(key);
             return null;
         }
-        
+
         return cached.value;
     }
-    
+
     has(key) {
         return this.get(key) !== null;
     }
-    
+
     clear() {
         this.cache.clear();
     }
-    
+
     delete(key) {
         this.cache.delete(key);
     }
@@ -84,25 +84,23 @@ class OptimizedFetch {
         this.cache = new RequestCache();
         this.pendingRequests = new Map();
     }
-    
+
     async fetch(url, options = {}) {
         const cacheKey = `${url}_${JSON.stringify(options)}`;
-        
+
         // ตรวจสอบ cache ก่อน
         if (options.cache !== false) {
             const cached = this.cache.get(cacheKey);
             if (cached) {
-                console.log('📦 Cache hit:', url);
                 return cached;
             }
         }
-        
+
         // ตรวจสอบว่ามี request pending อยู่หรือไม่
         if (this.pendingRequests.has(cacheKey)) {
-            console.log('⏳ Reusing pending request:', url);
             return this.pendingRequests.get(cacheKey);
         }
-        
+
         // สร้าง request ใหม่
         const request = fetch(url, options)
             .then(res => {
@@ -120,11 +118,11 @@ class OptimizedFetch {
                 this.pendingRequests.delete(cacheKey);
                 throw err;
             });
-        
+
         this.pendingRequests.set(cacheKey, request);
         return request;
     }
-    
+
     clearCache() {
         this.cache.clear();
     }
@@ -138,7 +136,7 @@ class LazyImageLoader {
         this.observer = null;
         this.init();
     }
-    
+
     init() {
         if ('IntersectionObserver' in window) {
             this.observer = new IntersectionObserver((entries) => {
@@ -155,13 +153,13 @@ class LazyImageLoader {
             });
         }
     }
-    
+
     loadImage(img) {
         const src = img.dataset.src;
         if (!src) return;
-        
+
         img.classList.add('loading');
-        
+
         const tempImg = new Image();
         tempImg.onload = () => {
             img.src = src;
@@ -175,14 +173,14 @@ class LazyImageLoader {
         };
         tempImg.src = src;
     }
-    
+
     observe(elements) {
         if (!this.observer) {
             // Fallback สำหรับ browser เก่า
             elements.forEach(img => this.loadImage(img));
             return;
         }
-        
+
         elements.forEach(el => this.observer.observe(el));
     }
 }
@@ -198,7 +196,7 @@ class SmartPoller {
         this.inactiveInterval = defaultInterval * 2;
         this.timeoutId = null;
         this.isRunning = false;
-        
+
         // ฟัง visibility change
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && this.isRunning) {
@@ -206,13 +204,13 @@ class SmartPoller {
             }
         });
     }
-    
+
     start() {
         if (this.isRunning) return;
         this.isRunning = true;
         this.poll();
     }
-    
+
     stop() {
         this.isRunning = false;
         if (this.timeoutId) {
@@ -220,16 +218,16 @@ class SmartPoller {
             this.timeoutId = null;
         }
     }
-    
+
     async poll() {
         if (!this.isRunning) return;
-        
+
         try {
             await this.callback();
         } catch (err) {
             console.error('Polling error:', err);
         }
-        
+
         // ปรับ interval ตาม visibility
         const interval = document.hidden ? this.inactiveInterval : this.activeInterval;
         this.timeoutId = setTimeout(() => this.poll(), interval);
@@ -248,7 +246,7 @@ const arrayUtils = {
         }
         return chunks;
     },
-    
+
     // ลบ duplicates
     unique(array, key = null) {
         if (!key) {
@@ -274,6 +272,3 @@ window.performanceUtils = {
     SmartPoller,
     arrayUtils
 };
-
-console.log('✅ Performance utilities loaded');
-

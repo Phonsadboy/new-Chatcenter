@@ -54,7 +54,7 @@ async function loadLineBotSettings() {
         if (response.ok) {
             const lineBots = await response.json();
             displayLineBotList(lineBots);
-            
+
             // อัปเดตข้อมูล AI Model ในส่วนการตั้งค่า AI (ถ้ามี)
             const lineBotAiModelInfo = document.getElementById('lineBotAiModelInfo');
             if (lineBotAiModelInfo) {
@@ -73,10 +73,10 @@ async function loadLineBotSettings() {
 function displayLineBotList(lineBots) {
     const container = document.getElementById('lineBotList');
     if (!container) return;
-    
+
     // อัปเดตสถิติ
     updateLineBotStats(lineBots || []);
-    
+
     if (!lineBots || lineBots.length === 0) {
         container.innerHTML = `
             <div class="text-center py-5">
@@ -251,20 +251,19 @@ async function loadLineBotAiModelInfo() {
 function displayLineBotAiModelInfo(lineBots) {
     const container = document.getElementById('lineBotAiModelInfo');
     if (!container) {
-        console.log('Line Bot AI Model Info container not found');
         return;
     }
-    
+
     if (!lineBots || lineBots.length === 0) {
         container.innerHTML = '<p class="text-muted mb-0">ยังไม่มี Line Bot ในระบบ</p>';
         return;
     }
-    
+
     let html = '<div class="row">';
     lineBots.forEach(bot => {
         const modelName = bot.aiModel || 'gpt-5';
         const statusClass = bot.status === 'active' ? 'success' : 'warning';
-        
+
         html += `
             <div class="col-md-6 mb-2">
                 <div class="d-flex align-items-center">
@@ -276,7 +275,7 @@ function displayLineBotAiModelInfo(lineBots) {
         `;
     });
     html += '</div>';
-    
+
     container.innerHTML = html;
 }
 
@@ -284,20 +283,20 @@ function displayLineBotAiModelInfo(lineBots) {
 function addNewLineBot() {
     const form = document.getElementById('lineBotForm');
     if (form) form.reset();
-    
+
     const lineBotId = document.getElementById('lineBotId');
     if (lineBotId) lineBotId.value = '';
-    
+
     const addLineBotModalLabel = document.getElementById('addLineBotModalLabel');
     if (addLineBotModalLabel) {
         addLineBotModalLabel.innerHTML = '<i class="fab fa-line me-2"></i>เพิ่ม Line Bot ใหม่';
     }
-    
+
     const saveLineBotBtn = document.getElementById('saveLineBotBtn');
     if (saveLineBotBtn) {
         saveLineBotBtn.innerHTML = '<i class="fas fa-save me-2"></i>บันทึก';
     }
-    
+
     // Reset webhook URL so backend can generate a unique endpoint on save
     const lineWebhookUrl = document.getElementById('lineWebhookUrl');
     if (lineWebhookUrl) {
@@ -311,7 +310,7 @@ async function editLineBot(botId) {
         const response = await fetch(`/api/line-bots/${botId}`);
         if (response.ok) {
             const bot = await response.json();
-            
+
             const lineBotId = document.getElementById('lineBotId');
             const lineBotName = document.getElementById('lineBotName');
             const lineBotDescription = document.getElementById('lineBotDescription');
@@ -321,7 +320,7 @@ async function editLineBot(botId) {
             const lineBotStatus = document.getElementById('lineBotStatus');
             const lineBotAiModel = document.getElementById('lineBotAiModel');
             const lineBotDefault = document.getElementById('lineBotDefault');
-            
+
             if (lineBotId) lineBotId.value = bot._id;
             if (lineBotName) lineBotName.value = bot.name;
             if (lineBotDescription) lineBotDescription.value = bot.description || '';
@@ -331,17 +330,17 @@ async function editLineBot(botId) {
             if (lineBotStatus) lineBotStatus.value = bot.status;
             if (lineBotAiModel) lineBotAiModel.value = bot.aiModel || 'gpt-5';
             if (lineBotDefault) lineBotDefault.checked = bot.isDefault;
-            
+
             const addLineBotModalLabel = document.getElementById('addLineBotModalLabel');
             if (addLineBotModalLabel) {
                 addLineBotModalLabel.innerHTML = '<i class="fab fa-line me-2"></i>แก้ไข Line Bot';
             }
-            
+
             const saveLineBotBtn = document.getElementById('saveLineBotBtn');
             if (saveLineBotBtn) {
                 saveLineBotBtn.innerHTML = '<i class="fas fa-save me-2"></i>อัปเดต';
             }
-            
+
             const modal = new bootstrap.Modal(document.getElementById('addLineBotModal'));
             modal.show();
         } else {
@@ -402,9 +401,9 @@ async function saveLineBot() {
         showAlert('ไม่พบฟอร์ม Line Bot', 'danger');
         return;
     }
-    
+
     const formData = new FormData(form);
-    
+
     const botData = {
         name: formData.get('name'),
         description: formData.get('description'),
@@ -443,7 +442,7 @@ async function saveLineBot() {
 
             showAlert(successMessage, 'success');
             await loadLineBotSettings();
-            
+
             const modal = bootstrap.Modal.getInstance(document.getElementById('addLineBotModal'));
             if (modal) modal.hide();
         } else {
@@ -496,7 +495,6 @@ async function loadFacebookBotSettings() {
 function displayFacebookBotList(facebookBots) {
     const container = document.getElementById('facebookBotList');
     if (!container) {
-        console.log('Facebook Bot List container not found');
         return;
     }
 
@@ -629,15 +627,15 @@ function displayFacebookBotList(facebookBots) {
 function addNewFacebookBot() {
     const form = document.getElementById('facebookBotForm');
     if (form) form.reset();
-    
+
     const facebookBotId = document.getElementById('facebookBotId');
     if (facebookBotId) facebookBotId.value = '';
-    
+
     const addFacebookBotModalLabel = document.getElementById('addFacebookBotModalLabel');
     if (addFacebookBotModalLabel) {
         addFacebookBotModalLabel.innerHTML = '<i class="fab fa-facebook me-2"></i>เพิ่ม Facebook Bot ใหม่';
     }
-    
+
     const deleteBtn = document.getElementById('deleteFacebookBotBtn');
     if (deleteBtn) deleteBtn.style.display = 'none';
 
@@ -673,7 +671,7 @@ async function editFacebookBot(botId) {
         const response = await fetch(`/api/facebook-bots/${botId}`);
         if (response.ok) {
             const bot = await response.json();
-            
+
             const facebookBotId = document.getElementById('facebookBotId');
             const facebookBotName = document.getElementById('facebookBotName');
             const facebookBotDescription = document.getElementById('facebookBotDescription');
@@ -683,7 +681,7 @@ async function editFacebookBot(botId) {
             const facebookVerifyToken = document.getElementById('facebookVerifyToken');
             const facebookBotAiModel = document.getElementById('facebookBotAiModel');
             const facebookBotDefault = document.getElementById('facebookBotDefault');
-            
+
             if (facebookBotId) facebookBotId.value = bot._id;
             if (facebookBotName) facebookBotName.value = bot.name;
             if (facebookBotDescription) facebookBotDescription.value = bot.description || '';
@@ -698,7 +696,7 @@ async function editFacebookBot(botId) {
             if (addFacebookBotModalLabel) {
                 addFacebookBotModalLabel.innerHTML = '<i class="fab fa-facebook me-2"></i>แก้ไข Facebook Bot';
             }
-            
+
             const deleteBtn = document.getElementById('deleteFacebookBotBtn');
             if (deleteBtn) deleteBtn.style.display = 'inline-block';
 
@@ -766,9 +764,9 @@ async function saveFacebookBot() {
         showAlert('ไม่พบฟอร์ม Facebook Bot', 'danger');
         return;
     }
-    
+
     const formData = new FormData(form);
-    
+
     const botData = {
         name: formData.get('name'),
         description: formData.get('description'),
@@ -781,7 +779,7 @@ async function saveFacebookBot() {
     };
 
     const botId = formData.get('id');
-    
+
     // enforce verification first
     const verifiedToggle = document.getElementById('fbVerifiedToggle');
     if (!verifiedToggle || !verifiedToggle.checked) {
@@ -808,7 +806,7 @@ async function saveFacebookBot() {
         if (response.ok) {
             showAlert(botId ? 'อัปเดต Facebook Bot เรียบร้อยแล้ว' : 'เพิ่ม Facebook Bot เรียบร้อยแล้ว', 'success');
             await loadFacebookBotSettings();
-            
+
             const modal = bootstrap.Modal.getInstance(document.getElementById('addFacebookBotModal'));
             if (modal) modal.hide();
         } else {
@@ -826,16 +824,16 @@ async function toggleLineBotStatus(botId) {
     const toggleMobile = document.getElementById(`lineBot_${botId}`);
     const toggleDesktop = document.getElementById(`lineBot_desktop_${botId}`);
     const toggle = toggleMobile || toggleDesktop;
-    
+
     if (!toggle) return;
-    
+
     const originalState = toggle.checked;
-    
+
     try {
         // Disable both toggles during request
         if (toggleMobile) toggleMobile.disabled = true;
         if (toggleDesktop) toggleDesktop.disabled = true;
-        
+
         const response = await fetch(`/api/line-bots/${botId}/toggle-status`, {
             method: 'PATCH'
         });
@@ -871,16 +869,16 @@ async function toggleFacebookBotStatus(botId) {
     const toggleMobile = document.getElementById(`facebookBot_${botId}`);
     const toggleDesktop = document.getElementById(`facebookBot_desktop_${botId}`);
     const toggle = toggleMobile || toggleDesktop;
-    
+
     if (!toggle) return;
-    
+
     const originalState = toggle.checked;
-    
+
     try {
         // Disable both toggles during request
         if (toggleMobile) toggleMobile.disabled = true;
         if (toggleDesktop) toggleDesktop.disabled = true;
-        
+
         const response = await fetch(`/api/facebook-bots/${botId}/toggle-status`, {
             method: 'PATCH'
         });

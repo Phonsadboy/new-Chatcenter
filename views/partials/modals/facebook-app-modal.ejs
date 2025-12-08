@@ -1,0 +1,137 @@
+<!-- Add Facebook App Modal -->
+<div class="modal fade" id="addFacebookAppModal" tabindex="-1" aria-labelledby="addFacebookAppModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addFacebookAppModalLabel">
+                    <i class="fab fa-facebook me-2"></i><span id="facebookAppModalTitle">สร้าง Facebook App ใหม่</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="facebookAppForm">
+                    <input type="hidden" id="facebookAppId" name="id">
+
+                    <div class="mb-3">
+                        <label for="facebookAppName" class="form-label">ชื่อ App <span
+                                class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="facebookAppName" name="name"
+                            placeholder="เช่น: My Shop App, Main Business App" required>
+                        <div class="form-text">ชื่อสำหรับแยกแยะ App ในระบบ (ตั้งชื่อตามใจชอบ)</div>
+                    </div>
+
+                    <div class="card mb-3" style="background-color: var(--surface-2);">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="fab fa-facebook text-primary me-2"></i>ข้อมูลจาก Facebook Developer</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="facebookAppAppId" class="form-label">Facebook App ID <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="facebookAppAppId" name="appId"
+                                            placeholder="เช่น: 1234567890123456" required>
+                                        <div class="form-text">
+                                            <a href="https://developers.facebook.com/apps" target="_blank" class="text-primary">
+                                                <i class="fas fa-external-link-alt me-1"></i>ดูได้ที่ developers.facebook.com
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="facebookAppAppSecret" class="form-label">App Secret <span class="text-muted">(Optional)</span></label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="facebookAppAppSecret" name="appSecret"
+                                                placeholder="สำหรับ feature ขั้นสูง">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('facebookAppAppSecret', this)">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3" style="background-color: var(--surface-2);">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="fas fa-globe text-success me-2"></i>Webhook Settings</h6>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="facebookAppVerifyToken" class="form-label">Verify Token</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="facebookAppVerifyToken" name="verifyToken"
+                                                placeholder="จะสร้างอัตโนมัติ" readonly>
+                                            <button class="btn btn-outline-secondary" type="button" id="copyVerifyTokenBtn" onclick="copyToClipboard('facebookAppVerifyToken', 'Verify Token')">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                            <button class="btn btn-outline-primary" type="button" id="regenerateVerifyTokenBtn" onclick="regenerateVerifyToken()">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Token สำหรับยืนยัน Webhook ใน Facebook App</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="facebookAppWebhookUrl" class="form-label">Webhook URL</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="facebookAppWebhookUrl" name="webhookUrl"
+                                                placeholder="จะสร้างหลังบันทึก" readonly>
+                                            <button class="btn btn-outline-secondary" type="button" id="copyWebhookUrlBtn" onclick="copyToClipboard('facebookAppWebhookUrl', 'Webhook URL')">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">URL นี้จะใช้สำหรับทุก Pages ที่เชื่อมต่อกับ App นี้</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info d-flex align-items-start" id="facebookAppSetupGuide">
+                        <i class="fas fa-info-circle me-2 mt-1"></i>
+                        <div>
+                            <strong>ขั้นตอนการตั้งค่า:</strong>
+                            <ol class="mb-0 mt-2 ps-3">
+                                <li>กรอก App ID และบันทึก เพื่อรับ Webhook URL และ Verify Token</li>
+                                <li>ไปที่ Facebook App → Messenger → Settings → Webhooks</li>
+                                <li>กรอก Callback URL (Webhook URL) และ Verify Token</li>
+                                <li>เลือก Subscriptions: messages, messaging_postbacks, message_echoes</li>
+                                <li>กลับมาที่นี่ แล้วเพิ่ม Pages ที่ต้องการเชื่อมต่อ</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Connected Pages Section (Show only in edit mode) -->
+                    <div class="card border-0" id="connectedPagesSection" style="display: none;">
+                        <div class="card-body p-0">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0"><i class="fas fa-file-alt me-2"></i>Pages ที่เชื่อมต่อ</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openAddFacebookBotModalForApp(document.getElementById('facebookAppId').value)">
+                                    <i class="fas fa-plus me-1"></i> เพิ่ม Page
+                                </button>
+                            </div>
+                            <div id="connectedPagesList" class="list-group list-group-flush">
+                                <!-- Pages will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger me-auto" id="deleteFacebookAppBtn" style="display: none;">
+                    <i class="fas fa-trash me-2"></i>ลบ App
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                <button type="button" class="btn btn-primary" id="saveFacebookAppBtn">
+                    <i class="fas fa-save me-2"></i>บันทึก
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

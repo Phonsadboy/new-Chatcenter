@@ -31,6 +31,28 @@
                             placeholder="อธิบายหน้าที่หรือวัตถุประสงค์ของ Facebook Bot นี้"></textarea>
                     </div>
 
+                    <!-- Facebook App Selection (NEW) -->
+                    <div class="mb-3">
+                        <label for="facebookBotAppId" class="form-label">
+                            <i class="fab fa-facebook text-primary me-1"></i>เชื่อมกับ Facebook App
+                            <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <select class="form-select" id="facebookBotAppId" name="facebookAppId" required>
+                                <option value="">-- เลือก Facebook App --</option>
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                            <button type="button" class="btn btn-outline-primary" onclick="openAddFacebookAppModal()"
+                                title="สร้าง App ใหม่">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            เลือก Facebook App ที่จะเชื่อมต่อกับ Page นี้
+                            <span class="text-primary" id="selectedAppWebhookInfo"></span>
+                        </div>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -38,33 +60,28 @@
                                         class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="facebookPageId" name="pageId"
                                     placeholder="123456789012345" required>
+                                <div class="form-text">
+                                    <a href="https://www.facebook.com/pages/?category=your_pages" target="_blank"
+                                        class="text-primary">
+                                        <i class="fas fa-external-link-alt me-1"></i>ดู Page ID ได้ที่หน้า About ของ
+                                        Page
+                                    </a>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="facebookAccessToken" class="form-label">Page Access Token <span
                                         class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="facebookAccessToken" name="accessToken"
-                                    placeholder="EAABwzLixnjYBO..." required>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="facebookWebhookUrl" class="form-label">Webhook URL</label>
-                                <input type="text" class="form-control" id="facebookWebhookUrl" name="webhookUrl"
-                                    placeholder="https://yourdomain.com/webhook/facebook1" readonly>
-                                <div class="form-text">URL ที่จะใช้เป็น Webhook สำหรับ Facebook Bot นี้</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="facebookVerifyToken" class="form-label">Verify Token</label>
-                                <input type="text" class="form-control" id="facebookVerifyToken" name="verifyToken"
-                                    placeholder="your_verify_token">
-                                <div class="form-text">Token สำหรับยืนยัน Webhook</div>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="facebookAccessToken"
+                                        name="accessToken" placeholder="EAABwzLixnjYBO..." required>
+                                    <button class="btn btn-outline-secondary" type="button"
+                                        onclick="togglePasswordVisibility('facebookAccessToken', this)">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">ได้จาก Facebook App → Messenger → Access Tokens</div>
                             </div>
                         </div>
                     </div>

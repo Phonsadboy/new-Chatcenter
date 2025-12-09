@@ -813,11 +813,11 @@
         <script>
             const initialInstruction = {
                 id: '<%= instruction._id.toString() %>',
-                instructionId: <% - JSON.stringify(instruction.instructionId || '') %>,
+                instructionId: <%- JSON.stringify(instruction.instructionId || '') %>,
                 type: '<%= instruction.type %>',
-                title: <% - JSON.stringify(instruction.title || '') %>,
-                content: <% - JSON.stringify(instruction.content || '') %>,
-                data: <% - JSON.stringify(instruction.data || null) %>,
+                title: <%- JSON.stringify(instruction.title || '') %>,
+                content: <%- JSON.stringify(instruction.content || '') %>,
+                data: <%- JSON.stringify(instruction.data || null) %>,
                 createdAt: '<%= instruction.createdAt ? new Date(instruction.createdAt).toISOString() : '' %>',
                 updatedAt: '<%= instruction.updatedAt ? new Date(instruction.updatedAt).toISOString() : '' %>'
         };

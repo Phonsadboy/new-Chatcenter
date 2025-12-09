@@ -17,35 +17,176 @@ class InstructionDataService {
         this.collection = db.collection("instructions_v2");
     }
 
-    normalizeTableRows(item) {
-        if (!item) return [];
+    sanitizeHeaderName(name) {
+        const key = String(name ?? "").trim();
+        if (!key) return "";
+        if (key.toLowerCase().startsWith("__empty")) return "";
+        return key;
+    }
+
+    sanitizeCellValue(value) {
+        if (value === null || value === undefined) return "";
+        if (value instanceof Date) return value.toISOString();
+        if (typeof value === "number" && !Number.isFinite(value)) return "";
+        return String(value);
+    }
+
+    buildDefaultColumns(count = 0) {
+        const safeCount = Math.max(0, Number(count) || 0);
+        return Array.from({ length: safeCount }, (_, idx) => `คอลัมน์ ${idx + 1}`);
+    }
+
+    normalizeColumns(columns, fallbackCount = 0) {
+        const cleaned = Array.isArray(columns) ? columns.map(col => this.sanitizeHeaderName(col)) : [];
+        const base = cleaned.filter(Boolean);
+        const cols = base.length ? base : this.buildDefaultColumns(fallbackCount);
+        const used = new Map();
+        return cols.map((col, idx) => {
+            const baseName = col || `คอลัมน์ ${idx + 1}`;
+            const count = used.get(baseName) || 0;
+            used.set(baseName, count + 1);
+            return count === 0 ? baseName : `${baseName} (${count + 1})`;
+        });
+    }
+
+    normalizeRowToColumns(row, columns) {
+        if (!Array.isArray(columns) || columns.length === 0) return [];
+        if (Array.isArray(row)) {
+            const copy = [...row];
+            while (copy.length < columns.length) copy.push("");
+            if (copy.length > columns.length) copy.length = columns.length;
+            return copy.map(val => this.sanitizeCellValue(val));
+        }
+        if (row && typeof row === "object") {
+            return columns.map(col => this.sanitizeCellValue(row[col]));
+        }
+        return columns.map(() => "");
+    }
+
+    normalizeTableData(item) {
         const tryParse = (val) => {
             if (typeof val === "string") {
                 try {
-                    const parsed = JSON.parse(val);
-                    return parsed;
+                    return JSON.parse(val);
                 } catch {
-                    return null;
+                    return val;
                 }
             }
             return val;
         };
 
-        const candidate = tryParse(item.data ?? item.content);
+        const sourceData = item?.data ?? item?.content ?? item;
+        const candidate = tryParse(sourceData);
 
-        if (Array.isArray(candidate)) {
-            return candidate;
-        }
+        let columns = [];
+        let rows = [];
 
-        if (candidate && typeof candidate === "object") {
-            // Handle common shapes like { rows: [...] }
-            if (Array.isArray(candidate.rows)) {
-                return candidate.rows;
+        if (candidate && typeof candidate === "object" && Array.isArray(candidate.columns) && Array.isArray(candidate.rows)) {
+            columns = this.normalizeColumns(candidate.columns, candidate.rows[0]?.length || candidate.columns.length);
+            rows = candidate.rows.map(row => this.normalizeRowToColumns(row, columns));
+        } else if (candidate && typeof candidate === "object" && Array.isArray(candidate.rows)) {
+            const inferredColumns = Array.isArray(candidate.columns) ? candidate.columns : [];
+            const longestRow = candidate.rows.reduce((max, row) => {
+                if (Array.isArray(row)) return Math.max(max, row.length);
+                if (row && typeof row === "object") return Math.max(max, Object.keys(row).length);
+                return max;
+            }, 0);
+            columns = this.normalizeColumns(inferredColumns, longestRow);
+            rows = candidate.rows.map(row => this.normalizeRowToColumns(row, columns));
+        } else if (Array.isArray(candidate)) {
+            if (candidate.some(row => row && typeof row === "object" && !Array.isArray(row))) {
+                const objectRows = candidate.map(row => (row && typeof row === "object") ? row : {});
+                const colSet = [];
+                objectRows.forEach(row => {
+                    Object.keys(row || {}).forEach(key => {
+                        const clean = this.sanitizeHeaderName(key);
+                        if (clean && !colSet.includes(clean)) colSet.push(clean);
+                    });
+                });
+                columns = this.normalizeColumns(colSet, colSet.length || Object.keys(objectRows[0] || {}).length);
+                rows = objectRows.map(row => this.normalizeRowToColumns(row, columns));
+            } else {
+                const longestRow = candidate.reduce((max, row) => Array.isArray(row) ? Math.max(max, row.length) : max, 0);
+                columns = this.normalizeColumns([], longestRow);
+                rows = candidate.map(row => this.normalizeRowToColumns(row, columns));
             }
-            return [candidate];
+        } else {
+            columns = [];
+            rows = [];
         }
 
-        return [];
+        if (!columns.length && rows.length) {
+            const longestRow = rows.reduce((max, row) => Math.max(max, row.length), 0);
+            columns = this.normalizeColumns([], longestRow);
+            rows = rows.map(row => this.normalizeRowToColumns(row, columns));
+        }
+
+        return { columns, rows };
+    }
+
+    buildTableDataFromSheetRows(rawRows, headerRow = []) {
+        if (!Array.isArray(rawRows)) return { columns: [], rows: [] };
+        const columnOrder = [];
+        rawRows.forEach(row => {
+            Object.keys(row || {}).forEach(key => {
+                const clean = this.sanitizeHeaderName(key);
+                if (clean && !columnOrder.includes(clean)) {
+                    columnOrder.push(clean);
+                }
+            });
+        });
+
+        if (columnOrder.length === 0 && Array.isArray(headerRow)) {
+            headerRow.forEach(header => {
+                const clean = this.sanitizeHeaderName(header);
+                if (clean && !columnOrder.includes(clean)) {
+                    columnOrder.push(clean);
+                }
+            });
+        }
+
+        const columns = this.normalizeColumns(columnOrder, columnOrder.length);
+        const rows = rawRows.map(row => this.normalizeRowToColumns(row, columns));
+        return { columns, rows };
+    }
+
+    mergeTableData(existingData, incomingData, mode = "append") {
+        const baseExisting = this.normalizeTableData({ data: existingData });
+        const incoming = this.normalizeTableData({ data: incomingData });
+
+        if (mode === "replace") {
+            return incoming;
+        }
+
+        const unionColumns = [];
+        [...baseExisting.columns, ...incoming.columns].forEach(col => {
+            const name = this.sanitizeHeaderName(col) || col;
+            if (name && !unionColumns.includes(name)) {
+                unionColumns.push(name);
+            }
+        });
+        const columns = this.normalizeColumns(
+            unionColumns,
+            unionColumns.length || Math.max(baseExisting.columns.length, incoming.columns.length)
+        );
+
+        const mapRow = (row, sourceCols) => {
+            const valueByCol = new Map();
+            sourceCols.forEach((col, idx) => valueByCol.set(col, row[idx]));
+            return columns.map(col => this.sanitizeCellValue(valueByCol.get(col)));
+        };
+
+        const mergedRows = [
+            ...baseExisting.rows.map(row => mapRow(row, baseExisting.columns)),
+            ...incoming.rows.map(row => mapRow(row, incoming.columns)),
+        ];
+
+        return { columns, rows: mergedRows };
+    }
+
+    normalizeTableRows(item) {
+        const normalized = this.normalizeTableData(item);
+        return normalized.rows || [];
     }
 
     /**
@@ -122,7 +263,14 @@ class InstructionDataService {
                 }
 
                 // Convert to JSON using headers
-                const rawData = XLSX.utils.sheet_to_json(sheet);
+                const rawData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                const headerRow = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" })?.[0] || [];
+                const tableData = this.buildTableDataFromSheetRows(rawData, headerRow);
+
+                if (!tableData.columns.length) {
+                    results.push({ sheetName, success: false, error: "ไม่พบหัวคอลัมน์ในไฟล์" });
+                    continue;
+                }
 
                 if (action === 'create') {
                     const now = new Date();
@@ -132,7 +280,7 @@ class InstructionDataService {
                         type: "table",
                         order: 0,
                         content: "",
-                        data: rawData, // The sheet data
+                        data: tableData,
                         createdAt: now,
                         updatedAt: now
                     };
@@ -163,8 +311,9 @@ class InstructionDataService {
                         continue;
                     }
 
-                    let newItems = instruction.dataItems ? [...instruction.dataItems] : [];
+                    const newItems = instruction.dataItems ? [...instruction.dataItems] : [];
                     let targetItem = newItems.find(item => item.type === 'table');
+                    const mergeMode = mode === 'replace' ? 'replace' : 'append';
                     
                     if (!targetItem) {
                          // Create new table item if none exists
@@ -174,19 +323,14 @@ class InstructionDataService {
                             type: "table",
                             order: newItems.length,
                             content: "",
-                            data: rawData,
+                            data: tableData,
                             createdAt: new Date(),
                             updatedAt: new Date()
                         };
                         newItems.push(targetItem);
                     } else {
                         // Update existing table item
-                        if (mode === 'replace') {
-                            targetItem.data = rawData;
-                        } else { // append
-                            const existingData = Array.isArray(targetItem.data) ? targetItem.data : [];
-                            targetItem.data = [...existingData, ...rawData];
-                        }
+                        targetItem.data = this.mergeTableData(targetItem.data, tableData, mergeMode);
                         targetItem.updatedAt = new Date();
                         // Replace in array
                         const index = newItems.findIndex(i => i.itemId === targetItem.itemId);
@@ -242,12 +386,24 @@ class InstructionDataService {
 
             const dataItems = Array.isArray(inst.dataItems) ? inst.dataItems : [];
             const tableItem = dataItems.find(i => i.type === 'table');
-            const normalizedRows = this.normalizeTableRows(tableItem);
-            const hasTableData = normalizedRows.length > 0;
+            const tableData = this.normalizeTableData(tableItem);
+            const hasTableData = tableData.columns.length > 0;
 
             let worksheet;
             if (hasTableData) {
-                worksheet = XLSX.utils.json_to_sheet(normalizedRows);
+                const sheetRows = tableData.rows.map(row => {
+                    const obj = {};
+                    tableData.columns.forEach((col, idx) => {
+                        obj[col] = row[idx];
+                    });
+                    return obj;
+                });
+
+                worksheet = XLSX.utils.json_to_sheet(sheetRows, { header: tableData.columns });
+                if (sheetRows.length === 0) {
+                    // json_to_sheet with empty rows keeps header, but ensure it exists explicitly
+                    XLSX.utils.sheet_add_aoa(worksheet, [tableData.columns], { origin: "A1" });
+                }
             } else {
                 // Fallback: export all data items as rows soไฟล์ไม่เปล่า
                 const rows = dataItems.map(item => ({

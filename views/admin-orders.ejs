@@ -433,6 +433,7 @@
       // ========== AI Model Settings ==========
       let aiSettingsPages = [];
       let selectedPageKey = null;
+      const defaultOrderPrompt = <% - JSON.stringify(defaultOrderPrompt || '') %>;
 
       async function loadAISettings() {
         try {
@@ -506,7 +507,7 @@
         // Set values
         document.getElementById('aiSettingsEnabled').checked = page.orderExtractionEnabled !== false;
         document.getElementById('aiSettingsModel').value = page.orderModel || 'gpt-4.1-nano';
-        document.getElementById('aiSettingsPrompt').value = page.orderPromptInstructions || '';
+        document.getElementById('aiSettingsPrompt').value = page.orderPromptInstructions || defaultOrderPrompt || '';
       }
 
       async function savePageAISettings() {

@@ -2020,8 +2020,22 @@ function updateSelectedAppInfo(appId) {
     }
 }
 
+// Track which modal opened the App modal (for returning after close)
+let _previousModalBeforeAppModal = null;
+
 // Open Add Facebook App Modal
 window.openAddFacebookAppModal = function () {
+    // Check if Facebook Bot modal is currently open and hide it
+    const botModalEl = document.getElementById('addFacebookBotModal');
+    if (botModalEl) {
+        const botModalInstance = bootstrap.Modal.getInstance(botModalEl);
+        if (botModalInstance && botModalEl.classList.contains('show')) {
+            // Store reference to return to this modal later
+            _previousModalBeforeAppModal = 'addFacebookBotModal';
+            botModalInstance.hide();
+        }
+    }
+
     const form = document.getElementById('facebookAppForm');
     if (form) form.reset();
 
@@ -2044,6 +2058,24 @@ window.openAddFacebookAppModal = function () {
 
     const modalEl = document.getElementById('addFacebookAppModal');
     if (modalEl) {
+        // Set up event listener to restore previous modal when this one closes
+        const handleHidden = function () {
+            modalEl.removeEventListener('hidden.bs.modal', handleHidden);
+            if (_previousModalBeforeAppModal) {
+                const prevModalId = _previousModalBeforeAppModal;
+                _previousModalBeforeAppModal = null;
+                // Small delay to ensure smooth transition
+                setTimeout(() => {
+                    const prevModalEl = document.getElementById(prevModalId);
+                    if (prevModalEl) {
+                        const prevModal = new bootstrap.Modal(prevModalEl);
+                        prevModal.show();
+                    }
+                }, 150);
+            }
+        };
+        modalEl.addEventListener('hidden.bs.modal', handleHidden);
+
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
     }
@@ -2268,9 +2300,50 @@ window.togglePasswordVisibility = function (inputId, btn) {
     }
 };
 
+// Track which modal opened the Bot modal (for returning after close)
+let _previousModalBeforeBotModal = null;
+
 // Open add Facebook Bot modal with preselected App
-window.openAddFacebookBotModalForApp = function (appId) {
-    window.openAddFacebookBotModal(appId);
+window.openAddFacebookBotModalForApp = async function (appId) {
+    // Check if Facebook App modal is currently open and hide it
+    const appModalEl = document.getElementById('addFacebookAppModal');
+    if (appModalEl) {
+        const appModalInstance = bootstrap.Modal.getInstance(appModalEl);
+        if (appModalInstance && appModalEl.classList.contains('show')) {
+            // Store reference to return to this modal later, including the app ID to restore edit state
+            _previousModalBeforeBotModal = {
+                modalId: 'addFacebookAppModal',
+                appId: appId // Store the app ID so we can restore the edit state
+            };
+            appModalInstance.hide();
+        }
+    }
+
+    // Wait for modal to fully close before opening the new one
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Open the bot modal with the preselected app ID
+    await window.openAddFacebookBotModal(appId);
+
+    // Set up event listener to restore previous modal when bot modal closes
+    const botModalEl = document.getElementById('addFacebookBotModal');
+    if (botModalEl && _previousModalBeforeBotModal) {
+        const handleHidden = function () {
+            botModalEl.removeEventListener('hidden.bs.modal', handleHidden);
+            if (_previousModalBeforeBotModal) {
+                const prevData = _previousModalBeforeBotModal;
+                _previousModalBeforeBotModal = null;
+                // Small delay to ensure smooth transition
+                setTimeout(() => {
+                    if (prevData.appId) {
+                        // Restore the edit state of the App modal
+                        window.openEditFacebookAppModal(prevData.appId);
+                    }
+                }, 150);
+            }
+        };
+        botModalEl.addEventListener('hidden.bs.modal', handleHidden, { once: true });
+    }
 };
 
 // Setup event listeners for Facebook App modal

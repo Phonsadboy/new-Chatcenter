@@ -6,6 +6,11 @@
 const INSTRUCTION_SOURCE = { V2: 'v2', LEGACY: 'legacy' };
 let instructionLibraries = [];
 
+// Legacy settings notice placeholder (legacy UI ถูกถอดออกแล้ว)
+function showLegacySettingsNotice() {
+    // no-op
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     initNavigation();
     loadAllSettings();

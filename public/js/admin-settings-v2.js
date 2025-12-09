@@ -2233,7 +2233,7 @@ function renderConnectedPages(pages) {
                 <strong>${escapeHtml(page.name)}</strong>
                 <small class="text-muted ms-2">Page ID: ${escapeHtml(page.pageId || 'N/A')}</small>
             </div>
-            <button class="btn btn-sm btn-outline-secondary" onclick="openEditFacebookBotModal('${page._id}')">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openEditFacebookBotModal('${page._id}')">
                 <i class="fas fa-edit"></i>
             </button>
         </div>

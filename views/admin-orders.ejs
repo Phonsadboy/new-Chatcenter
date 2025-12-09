@@ -186,6 +186,113 @@
       </div>
     </div>
 
+    <!-- Order Edit Modal -->
+    <div class="modal fade order-modal" id="orderEditModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-edit me-2"></i>แก้ไขออเดอร์
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="orderEditForm">
+              <input type="hidden" id="editOrderId">
+
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">สถานะออเดอร์</label>
+                    <select class="form-select" id="editOrderStatus">
+                      <option value="pending">รอดำเนินการ</option>
+                      <option value="confirmed">ยืนยันแล้ว</option>
+                      <option value="shipped">จัดส่งแล้ว</option>
+                      <option value="completed">เสร็จสิ้น</option>
+                      <option value="cancelled">ยกเลิก</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">วิธีชำระเงิน</label>
+                    <select class="form-select" id="editPaymentMethod">
+                      <option value="เก็บเงินปลายทาง">เก็บเงินปลายทาง</option>
+                      <option value="โอนเงิน">โอนเงิน</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">หมายเหตุ</label>
+                <textarea class="form-control" id="editOrderNotes" rows="2" placeholder="เพิ่มหมายเหตุ..."></textarea>
+              </div>
+
+              <hr>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold"><i class="fas fa-box me-1"></i> รายการสินค้า</label>
+                <div id="editOrderItems">
+                  <!-- Order items will be populated here -->
+                </div>
+              </div>
+
+              <hr>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold"><i class="fas fa-user me-1"></i> ชื่อลูกค้า</label>
+                <input type="text" class="form-control" id="editCustomerName" placeholder="ชื่อผู้รับสินค้า">
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold"><i class="fas fa-map-marker-alt me-1"></i> ข้อมูลการจัดส่ง</label>
+                <div class="row mb-2">
+                  <div class="col-12">
+                    <input type="text" class="form-control" id="editShippingAddress"
+                      placeholder="ที่อยู่ (บ้านเลขที่ หมู่ ซอย ถนน)">
+                  </div>
+                </div>
+                <div class="row mb-2">
+                  <div class="col-md-6 mb-2 mb-md-0">
+                    <input type="text" class="form-control" id="editAddressSubDistrict" placeholder="ตำบล/แขวง">
+                  </div>
+                  <div class="col-md-6">
+                    <input type="text" class="form-control" id="editAddressDistrict" placeholder="อำเภอ/เขต">
+                  </div>
+                </div>
+                <div class="row mb-2">
+                  <div class="col-md-6 mb-2 mb-md-0">
+                    <input type="text" class="form-control" id="editAddressProvince" placeholder="จังหวัด">
+                  </div>
+                  <div class="col-md-6">
+                    <input type="text" class="form-control" id="editAddressPostalCode" placeholder="รหัสไปรษณีย์">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-12">
+                    <input type="text" class="form-control" id="editPhone" placeholder="เบอร์โทรศัพท์">
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">ค่าส่ง (บาท)</label>
+                <input type="number" class="form-control" id="editShippingCost" placeholder="ใส่ค่าส่ง (0 = ส่งฟรี)"
+                  min="0" step="1">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="button" class="btn btn-primary" id="saveOrderBtn">
+              <i class="fas fa-save me-2"></i>บันทึก
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- AI Settings Modal -->
     <div class="modal fade" id="ordersAISettingsModal" tabindex="-1">
       <div class="modal-dialog modal-lg">

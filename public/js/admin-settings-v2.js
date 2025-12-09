@@ -2305,22 +2305,23 @@ let _previousModalBeforeBotModal = null;
 
 // Open add Facebook Bot modal with preselected App
 window.openAddFacebookBotModalForApp = async function (appId) {
-    // Check if Facebook App modal is currently open and hide it
+    // Store the app ID to return to after Bot modal closes
+    _previousModalBeforeBotModal = {
+        modalId: 'addFacebookAppModal',
+        appId: appId
+    };
+
+    // Hide the current App modal first
     const appModalEl = document.getElementById('addFacebookAppModal');
     if (appModalEl) {
         const appModalInstance = bootstrap.Modal.getInstance(appModalEl);
         if (appModalInstance && appModalEl.classList.contains('show')) {
-            // Store reference to return to this modal later, including the app ID to restore edit state
-            _previousModalBeforeBotModal = {
-                modalId: 'addFacebookAppModal',
-                appId: appId // Store the app ID so we can restore the edit state
-            };
             appModalInstance.hide();
         }
     }
 
     // Wait for modal to fully close before opening the new one
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     // Open the bot modal with the preselected app ID
     await window.openAddFacebookBotModal(appId);

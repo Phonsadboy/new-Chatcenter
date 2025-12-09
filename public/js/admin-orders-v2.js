@@ -310,6 +310,9 @@
           </td>
           <td>
             <div class="orders-actions">
+              <button class="orders-action-btn btn-edit" title="แก้ไขออเดอร์" onclick="window.OrdersV2.openEditModal('${order.id}')">
+                <i class="fas fa-edit"></i>
+              </button>
               <button class="orders-action-btn" title="ดูรายละเอียด" onclick="window.OrdersV2.openDetail('${order.id}')">
                 <i class="fas fa-eye"></i>
               </button>
@@ -895,6 +898,259 @@
     };
   }
 
+  // ============ Order Edit Modal ============
+  function openEditModal(orderId) {
+    const order = state.orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // Populate modal with order data
+    document.getElementById('editOrderId').value = orderId;
+    document.getElementById('editOrderStatus').value = order.status || 'pending';
+    document.getElementById('editOrderNotes').value = order.notes || '';
+
+    // Set payment method
+    const paymentMethodSelect = document.getElementById('editPaymentMethod');
+    if (paymentMethodSelect) {
+      paymentMethodSelect.value = order.paymentMethod || 'เก็บเงินปลายทาง';
+    }
+
+    // Populate address fields
+    const shippingAddressInput = document.getElementById('editShippingAddress');
+    if (shippingAddressInput) {
+      shippingAddressInput.value = order.shippingAddress || '';
+    }
+
+    const phoneInput = document.getElementById('editPhone');
+    if (phoneInput) {
+      phoneInput.value = order.phone || '';
+    }
+
+    const addressSubDistrictInput = document.getElementById('editAddressSubDistrict');
+    if (addressSubDistrictInput) {
+      addressSubDistrictInput.value = order.addressSubDistrict || '';
+    }
+
+    const addressDistrictInput = document.getElementById('editAddressDistrict');
+    if (addressDistrictInput) {
+      addressDistrictInput.value = order.addressDistrict || '';
+    }
+
+    const addressProvinceInput = document.getElementById('editAddressProvince');
+    if (addressProvinceInput) {
+      addressProvinceInput.value = order.addressProvince || '';
+    }
+
+    const addressPostalCodeInput = document.getElementById('editAddressPostalCode');
+    if (addressPostalCodeInput) {
+      addressPostalCodeInput.value = order.addressPostalCode || '';
+    }
+
+    const customerNameInput = document.getElementById('editCustomerName');
+    if (customerNameInput) {
+      customerNameInput.value = order.customerName || order.recipientName || '';
+    }
+
+    const shippingCostInput = document.getElementById('editShippingCost');
+    if (shippingCostInput) {
+      let shippingCost = 0;
+      if (typeof order.shippingCost === 'number' && isFinite(order.shippingCost)) {
+        shippingCost = Math.max(0, order.shippingCost);
+      } else if (typeof order.shippingCost === 'string') {
+        const parsed = parseFloat(order.shippingCost);
+        if (!isNaN(parsed) && parsed >= 0) {
+          shippingCost = parsed;
+        }
+      }
+      shippingCostInput.value = shippingCost;
+    }
+
+    // Render order items
+    const editOrderItems = document.getElementById('editOrderItems');
+    const items = order.items || [];
+    if (editOrderItems) {
+      editOrderItems.innerHTML = items.map((item, index) => `
+        <div class="order-item-edit mb-2" data-index="${index}">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-5">
+              <input type="text" class="form-control form-control-sm" placeholder="สินค้า" value="${escapeHtml(item.product || '')}" data-field="product">
+            </div>
+            <div class="col-md-2">
+              <input type="number" class="form-control form-control-sm" placeholder="จำนวน" value="${item.quantity || 1}" data-field="quantity" min="1">
+            </div>
+            <div class="col-md-3">
+              <input type="number" class="form-control form-control-sm" placeholder="ราคา" value="${item.price || 0}" data-field="price" min="0">
+            </div>
+            <div class="col-md-2">
+              <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="window.OrdersV2.removeOrderItem(${index})">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('') + `
+        <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="window.OrdersV2.addOrderItem()">
+          <i class="fas fa-plus me-1"></i> เพิ่มสินค้า
+        </button>
+      `;
+    }
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('orderEditModal'));
+    modal.show();
+  }
+
+  function addOrderItem() {
+    const editOrderItems = document.getElementById('editOrderItems');
+    if (!editOrderItems) return;
+
+    const addButton = editOrderItems.querySelector('.btn-outline-primary');
+    const newIndex = editOrderItems.querySelectorAll('.order-item-edit').length;
+
+    const newItem = document.createElement('div');
+    newItem.className = 'order-item-edit mb-2';
+    newItem.dataset.index = newIndex;
+    newItem.innerHTML = `
+      <div class="row g-2 align-items-center">
+        <div class="col-md-5">
+          <input type="text" class="form-control form-control-sm" placeholder="สินค้า" value="" data-field="product">
+        </div>
+        <div class="col-md-2">
+          <input type="number" class="form-control form-control-sm" placeholder="จำนวน" value="1" data-field="quantity" min="1">
+        </div>
+        <div class="col-md-3">
+          <input type="number" class="form-control form-control-sm" placeholder="ราคา" value="0" data-field="price" min="0">
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="window.OrdersV2.removeOrderItem(${newIndex})">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    `;
+
+    if (addButton) {
+      addButton.before(newItem);
+    } else {
+      editOrderItems.appendChild(newItem);
+    }
+  }
+
+  function removeOrderItem(index) {
+    const editOrderItems = document.getElementById('editOrderItems');
+    if (!editOrderItems) return;
+
+    const itemElements = editOrderItems.querySelectorAll('.order-item-edit');
+    if (itemElements[index]) {
+      itemElements[index].remove();
+    }
+  }
+
+  async function saveOrderFromModal() {
+    const orderId = document.getElementById('editOrderId').value;
+    if (!orderId) return;
+
+    // Collect order items
+    const editOrderItems = document.getElementById('editOrderItems');
+    const itemElements = editOrderItems.querySelectorAll('.order-item-edit');
+    const items = [];
+
+    itemElements.forEach((element) => {
+      const product = element.querySelector('[data-field="product"]').value.trim();
+      const quantity = parseInt(element.querySelector('[data-field="quantity"]').value) || 0;
+      const price = parseFloat(element.querySelector('[data-field="price"]').value) || 0;
+
+      if (product && quantity > 0) {
+        items.push({ product, quantity, price });
+      }
+    });
+
+    if (items.length === 0) {
+      showToast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ', 'warning');
+      return;
+    }
+
+    const shippingCostInput = document.getElementById('editShippingCost');
+    let shippingCost = 0;
+    if (shippingCostInput) {
+      const parsed = parseFloat(shippingCostInput.value);
+      if (!isNaN(parsed) && parsed >= 0) {
+        shippingCost = parsed;
+      }
+    }
+
+    // Calculate total (รวมค่าส่ง)
+    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.price), 0) + shippingCost;
+
+    // Collect other data
+    const orderData = {
+      items,
+      totalAmount,
+      shippingAddress: document.getElementById('editShippingAddress')?.value.trim() || null,
+      addressSubDistrict: document.getElementById('editAddressSubDistrict')?.value.trim() || null,
+      addressDistrict: document.getElementById('editAddressDistrict')?.value.trim() || null,
+      addressProvince: document.getElementById('editAddressProvince')?.value.trim() || null,
+      addressPostalCode: document.getElementById('editAddressPostalCode')?.value.trim() || null,
+      phone: document.getElementById('editPhone')?.value.trim() || null,
+      paymentMethod: document.getElementById('editPaymentMethod')?.value || null,
+      shippingCost,
+      customerName: document.getElementById('editCustomerName')?.value.trim() || null
+    };
+
+    const status = document.getElementById('editOrderStatus').value;
+    const notes = document.getElementById('editOrderNotes').value.trim();
+
+    const saveBtn = document.getElementById('saveOrderBtn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังบันทึก...';
+    }
+
+    try {
+      const response = await fetch(`/admin/chat/orders/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          orderData,
+          status,
+          notes
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showToast('บันทึกออเดอร์สำเร็จ', 'success');
+
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('orderEditModal'));
+        if (modal) modal.hide();
+
+        // Reload orders
+        loadOrders();
+      } else {
+        showToast('ไม่สามารถบันทึกออเดอร์ได้: ' + (data.error || 'เกิดข้อผิดพลาด'), 'error');
+      }
+    } catch (error) {
+      console.error('[Orders] Save order error:', error);
+      showToast('เกิดข้อผิดพลาดในการบันทึกออเดอร์', 'error');
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>บันทึก';
+      }
+    }
+  }
+
+  // Bind save order button
+  function bindEditModalEvents() {
+    const saveOrderBtn = document.getElementById('saveOrderBtn');
+    if (saveOrderBtn) {
+      saveOrderBtn.addEventListener('click', saveOrderFromModal);
+    }
+  }
+
   // ============ Public API ============
   window.OrdersV2 = {
     init,
@@ -907,13 +1163,21 @@
     printLabel,
     goToChat,
     goToPage,
-    saveNotes
+    saveNotes,
+    openEditModal,
+    addOrderItem,
+    removeOrderItem,
+    saveOrder: saveOrderFromModal
   };
 
   // Auto init
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+      bindEditModalEvents();
+    });
   } else {
     init();
+    bindEditModalEvents();
   }
 })();

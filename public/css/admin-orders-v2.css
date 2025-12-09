@@ -1080,3 +1080,94 @@
     justify-content: center;
   }
 }
+
+/* ============ Edit Button ============ */
+.orders-action-btn.btn-edit {
+  color: var(--primary);
+}
+
+.orders-action-btn.btn-edit:hover {
+  background: rgba(var(--primary-rgb, 74, 111, 165), 0.1);
+  color: var(--primary);
+}
+
+/* ============ Order Edit Modal ============ */
+.order-modal .modal-content {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.order-modal .modal-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 1rem 1.5rem;
+}
+
+.order-modal .modal-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-dark, #1E2430);
+}
+
+.order-modal .modal-body {
+  padding: 1.5rem;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.order-modal .modal-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 1rem 1.5rem;
+}
+
+.order-modal .form-label {
+  font-size: 0.85rem;
+  color: var(--text-dark, #1E2430);
+  margin-bottom: 0.5rem;
+}
+
+.order-modal .form-control,
+.order-modal .form-select {
+  border: 1px solid var(--border-color, #E1E5EF);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+}
+
+.order-modal .form-control:focus,
+.order-modal .form-select:focus {
+  border-color: var(--primary, #4A6FA5);
+  box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
+}
+
+.order-modal .form-control::placeholder {
+  color: var(--text-light, #5C6372);
+  opacity: 0.6;
+}
+
+.order-modal hr {
+  border-color: rgba(0, 0, 0, 0.06);
+  margin: 1.25rem 0;
+}
+
+/* Order Item Edit Row */
+.order-item-edit {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.order-item-edit .form-control {
+  background: var(--card-bg, #fff);
+}
+
+.order-item-edit .btn-outline-danger {
+  border-color: var(--danger, #D2555A);
+  color: var(--danger, #D2555A);
+}
+
+.order-item-edit .btn-outline-danger:hover {
+  background: var(--danger, #D2555A);
+  color: #fff;
+}

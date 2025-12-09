@@ -37,11 +37,8 @@ services:
       - MONGODB_URI=${MONGODB_URI}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
-      - FACEBOOK_VERIFY_TOKEN=${FACEBOOK_VERIFY_TOKEN}
-      - FACEBOOK_PAGE_ACCESS_TOKEN=${FACEBOOK_PAGE_ACCESS_TOKEN}
       - SESSION_SECRET=${SESSION_SECRET}
     restart: unless-stopped
     healthcheck:
@@ -73,7 +70,6 @@ docker-compose up -d
 |----------|-------------|
 | `OPENAI_API_KEY` | OpenAI API key (GPT-4, GPT-5) |
 | `ANTHROPIC_API_KEY` | Anthropic API key (Claude) |
-| `GOOGLE_API_KEY` | Google API key (Gemini) |
 
 ### Optional Platform Integration
 
@@ -81,8 +77,6 @@ docker-compose up -d
 |----------|-------------|
 | `LINE_CHANNEL_SECRET` | LINE Bot channel secret |
 | `LINE_CHANNEL_ACCESS_TOKEN` | LINE Bot access token |
-| `FACEBOOK_VERIFY_TOKEN` | Facebook webhook verify token |
-| `FACEBOOK_PAGE_ACCESS_TOKEN` | Facebook page access token |
 
 ## 🔧 Configuration
 
@@ -94,7 +88,6 @@ Create a `.env` file with your configuration:
 MONGODB_URI=mongodb://localhost:27017/chatcenter
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_API_KEY=AI...
 SESSION_SECRET=your-secret-key
 ```
 

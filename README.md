@@ -55,7 +55,7 @@ cp env.example .env
 แก้ไขค่าต่างๆ ใน `.env`:
 ```env
 # MongoDB Connection
-MONGODB_URI=mongodb://localhost:27017/chatbot
+MONGO_URI=mongodb://localhost:27017/chatbot
 
 # OpenAI API Key
 OPENAI_API_KEY=sk-...
@@ -63,10 +63,6 @@ OPENAI_API_KEY=sk-...
 # LINE Bot (ถ้าใช้)
 LINE_CHANNEL_ACCESS_TOKEN=...
 LINE_CHANNEL_SECRET=...
-
-# Facebook (ถ้าใช้)
-FACEBOOK_PAGE_ACCESS_TOKEN=...
-FACEBOOK_VERIFY_TOKEN=...
 
 # Admin Authentication
 ADMIN_USERNAME=admin

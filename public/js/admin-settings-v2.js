@@ -527,6 +527,24 @@ window.openAddFacebookBotModal = async function (preselectedAppId = null) {
 };
 
 window.openEditFacebookBotModal = async function (id) {
+    // Check if Facebook App modal is currently open and hide it first
+    const appModalEl = document.getElementById('addFacebookAppModal');
+    let wasAppModalOpen = false;
+    let appIdToReturnTo = null;
+
+    if (appModalEl && appModalEl.classList.contains('show')) {
+        wasAppModalOpen = true;
+        // Get the current app ID so we can return to it later
+        appIdToReturnTo = document.getElementById('facebookAppId')?.value || null;
+
+        const appModalInstance = bootstrap.Modal.getInstance(appModalEl);
+        if (appModalInstance) {
+            appModalInstance.hide();
+        }
+        // Wait for modal to fully close before opening the new one
+        await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
     // Populate API key dropdown first
     await populateApiKeyDropdowns('facebookBotApiKeyId');
 
@@ -568,11 +586,33 @@ window.openEditFacebookBotModal = async function (id) {
 
         const modalEl = document.getElementById('addFacebookBotModal');
         if (!modalEl) return;
+
+        // Set up event listener to restore App modal when Bot modal closes (if App modal was open)
+        if (wasAppModalOpen && appIdToReturnTo) {
+            const handleHidden = function () {
+                modalEl.removeEventListener('hidden.bs.modal', handleHidden);
+                // Small delay to ensure smooth transition
+                setTimeout(() => {
+                    if (appIdToReturnTo) {
+                        window.openEditFacebookAppModal(appIdToReturnTo);
+                    }
+                }, 150);
+            };
+            modalEl.addEventListener('hidden.bs.modal', handleHidden, { once: true });
+        }
+
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
     } catch (error) {
         console.error('Error fetching bot details:', error);
         showToast('ไม่สามารถโหลดข้อมูลบอทได้', 'danger');
+
+        // If we hid the App Modal but failed to open Bot Modal, restore App Modal
+        if (wasAppModalOpen && appIdToReturnTo) {
+            setTimeout(() => {
+                window.openEditFacebookAppModal(appIdToReturnTo);
+            }, 150);
+        }
     }
 };
 
@@ -632,6 +672,76 @@ async function saveFacebookBot() {
         showToast('บันทึกข้อมูลไม่สำเร็จ', 'danger');
     }
 }
+
+// Test Facebook Token before saving
+window.testFacebookToken = async function () {
+    const accessToken = document.getElementById('facebookAccessToken').value.trim();
+    const pageId = document.getElementById('facebookPageId').value.trim();
+    const resultDiv = document.getElementById('tokenTestResult');
+
+    if (!accessToken) {
+        showToast('กรุณากรอก Access Token ก่อน', 'warning');
+        return;
+    }
+
+    // Show loading state
+    if (resultDiv) {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div class="alert alert-info py-2 mb-0"><i class="fas fa-spinner fa-spin me-2"></i>กำลังทดสอบการเชื่อมต่อ...</div>';
+    }
+
+    try {
+        const response = await fetch('/api/facebook-bots/test-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken, pageId })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            if (resultDiv) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success py-2 mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>เชื่อมต่อสำเร็จ!</strong> ชื่อเพจ: ${escapeHtml(data.pageName)}
+                        ${data.pageId ? `<br><small class="text-muted">Page ID: ${data.pageId}</small>` : ''}
+                    </div>
+                `;
+            }
+            showToast(`✅ เชื่อมต่อสำเร็จ! ชื่อเพจ: ${data.pageName}`, 'success');
+
+            // Auto-fill Page ID if empty and we got one from the API
+            const pageIdInput = document.getElementById('facebookPageId');
+            if (pageIdInput && !pageIdInput.value && data.pageId) {
+                pageIdInput.value = data.pageId;
+            }
+        } else {
+            if (resultDiv) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger py-2 mb-0">
+                        <i class="fas fa-times-circle me-2"></i>
+                        <strong>ไม่สามารถเชื่อมต่อได้</strong><br>
+                        <small>${escapeHtml(data.error)}</small>
+                    </div>
+                `;
+            }
+            showToast(`❌ ${data.error}`, 'danger');
+        }
+    } catch (error) {
+        console.error('[Token Test] Error:', error);
+        if (resultDiv) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger py-2 mb-0">
+                    <i class="fas fa-times-circle me-2"></i>
+                    <strong>เกิดข้อผิดพลาด</strong><br>
+                    <small>ไม่สามารถทดสอบการเชื่อมต่อได้</small>
+                </div>
+            `;
+        }
+        showToast('❌ ไม่สามารถทดสอบการเชื่อมต่อได้', 'danger');
+    }
+};
 
 // Delete Line Bot
 async function deleteLineBot(botId) {
@@ -1113,27 +1223,7 @@ function updateChatSamplingVisibility(prefix) {
     }
 }
 
-function showLegacySettingsNotice() {
-    const toast = document.getElementById('legacySettingsToast');
-    if (!toast) return;
 
-    ['legacyToastCloseBtn', 'dismissLegacyToast'].forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.addEventListener('click', () => hideLegacySettingsNotice());
-        }
-    });
-
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 300);
-}
-
-function hideLegacySettingsNotice() {
-    const toast = document.getElementById('legacySettingsToast');
-    if (!toast) return;
-    toast.classList.remove('show');
-}
 
 function initSidebarScrollHint() {
     const sidebar = document.querySelector('.settings-sidebar');

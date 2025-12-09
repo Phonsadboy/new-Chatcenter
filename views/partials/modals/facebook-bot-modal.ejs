@@ -80,8 +80,13 @@
                                         onclick="togglePasswordVisibility('facebookAccessToken', this)">
                                         <i class="fas fa-eye"></i>
                                     </button>
+                                    <button class="btn btn-outline-success" type="button" onclick="testFacebookToken()"
+                                        title="ทดสอบ">
+                                        <i class="fas fa-plug"></i>
+                                    </button>
                                 </div>
                                 <div class="form-text">ได้จาก Facebook App → Messenger → Access Tokens</div>
+                                <div id="tokenTestResult" class="mt-2" style="display: none;"></div>
                             </div>
                         </div>
                     </div>

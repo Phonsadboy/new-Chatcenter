@@ -416,12 +416,45 @@ class ChatManager {
                     return normalizedUser;
                 });
                 this.applyFilters();
+
+                // Check for URL parameter to auto-select user (e.g., from Orders page)
+                this.handleUrlUserParameter();
             } else {
                 this.showToast('ไม่สามารถโหลดรายชื่อผู้ใช้ได้', 'error');
             }
         } catch (error) {
             console.error('Error loading users:', error);
             this.showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+        }
+    }
+
+    /**
+     * Handle URL parameter for auto-selecting a user
+     * Used when navigating from Orders page with ?user=xxx
+     */
+    handleUrlUserParameter() {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetUserId = urlParams.get('user');
+
+            if (targetUserId) {
+                // Check if user exists in our list
+                const userExists = this.allUsers.some(u => u.userId === targetUserId);
+
+                if (userExists) {
+                    // Auto-select the user
+                    this.selectUser(targetUserId);
+
+                    // Clean up URL by removing the parameter (optional, for cleaner URL)
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                } else {
+                    // User not found, show a message
+                    this.showToast('ไม่พบผู้ใช้ที่ต้องการในรายการ', 'warning');
+                }
+            }
+        } catch (error) {
+            console.error('Error handling URL user parameter:', error);
         }
     }
 

@@ -22194,7 +22194,21 @@ async function getNormalizedChatUsers(options = {}) {
       },
     ];
 
-    const users = await chatColl.aggregate(pipeline).toArray();
+    const rawUsers = await chatColl.aggregate(pipeline).toArray();
+    const users = rawUsers
+      .map((user) => {
+        if (!user) return null;
+        const rawId = user._id;
+        const userId =
+          typeof rawId === "string"
+            ? rawId
+            : rawId && typeof rawId.toString === "function"
+              ? rawId.toString()
+              : null;
+        if (!userId) return null;
+        return { ...user, _id: userId };
+      })
+      .filter(Boolean);
     const userIds = users.map((user) => user._id);
     const followStatuses =
       userIds.length > 0
@@ -22277,7 +22291,8 @@ async function getNormalizedChatUsers(options = {}) {
     // แปลงข้อมูลผู้ใช้แต่ละคน
     const normalizedUsers = await Promise.all(
       users.map(async (user) => {
-        const unreadCount = await getUserUnreadCount(user._id);
+        const userId = user._id;
+        const unreadCount = await getUserUnreadCount(userId);
         const platform = user.platform || "line";
         const botId = normalizeFollowUpBotId(user.botId);
         const contextKey = `${platform}:${botId || "default"}`;
@@ -22289,11 +22304,11 @@ async function getNormalizedChatUsers(options = {}) {
         }
 
         // ดึงข้อมูลโปรไฟล์
-        const profileKey = `${user._id}:${platform}`;
+        const profileKey = `${userId}:${platform}`;
         let userProfile = profileMap.get(profileKey) || null;
 
         if (platform === "line" && !userProfile) {
-          const freshProfile = await saveOrUpdateUserProfile(user._id);
+          const freshProfile = await saveOrUpdateUserProfile(userId);
           if (freshProfile) {
             userProfile = {
               ...freshProfile,
@@ -22333,11 +22348,11 @@ async function getNormalizedChatUsers(options = {}) {
         // ดึงสถานะ AI ต่อผู้ใช้
         let aiEnabled = true;
         try {
-          const status = await getUserStatus(user._id);
+          const status = await getUserStatus(userId);
           aiEnabled = !!status.aiEnabled;
         } catch (_) { }
 
-        const followStatus = followMap[user._id];
+        const followStatus = followMap[userId];
         const showFollowUp = config.showInChat !== false;
         const hasFollowUp =
           showFollowUp && followStatus ? !!followStatus.hasFollowUp : false;
@@ -22351,19 +22366,19 @@ async function getNormalizedChatUsers(options = {}) {
           : null;
 
         // ดึงแท็กของผู้ใช้
-        const tags = tagsMap[user._id] || [];
+        const tags = tagsMap[userId] || [];
 
         // ดึงสถานะการซื้อ (ถ้ามี manual override ให้ใช้ ถ้าไม่ ให้ใช้จาก follow-up)
         let hasPurchased = false;
-        if (typeof purchaseMap[user._id] === "boolean") {
-          hasPurchased = purchaseMap[user._id];
+        if (typeof purchaseMap[userId] === "boolean") {
+          hasPurchased = purchaseMap[userId];
         } else {
           // ใช้ข้อมูลจาก follow-up status
           hasPurchased = hasFollowUp;
         }
 
         // ดึงข้อมูลออเดอร์
-        const userOrders = ordersMap[user._id] || [];
+        const userOrders = ordersMap[userId] || [];
         const hasOrders = userOrders.length > 0;
         const orderCount = userOrders.length;
 
@@ -22373,8 +22388,8 @@ async function getNormalizedChatUsers(options = {}) {
             : "";
 
         return {
-          userId: user._id,
-          displayName: profileDisplayName || user._id.substring(0, 8) + "...",
+          userId,
+          displayName: profileDisplayName || userId.substring(0, 8) + "...",
           pictureUrl: userProfile ? userProfile.pictureUrl || null : null,
           statusMessage:
             platform === "line" && userProfile

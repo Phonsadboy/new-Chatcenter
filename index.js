@@ -20848,6 +20848,33 @@ app.patch("/admin/orders/:orderId/notes", async (req, res) => {
   }
 });
 
+// API: ลบออเดอร์
+app.delete("/admin/orders/:orderId", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!ObjectId.isValid(orderId)) {
+      return res.status(400).json({ success: false, error: "รหัสออเดอร์ไม่ถูกต้อง" });
+    }
+
+    const client = await connectDB();
+    const db = client.db("chatbot");
+    const coll = db.collection("orders");
+
+    const result = await coll.deleteOne({ _id: new ObjectId(orderId) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, error: "ไม่พบออเดอร์" });
+    }
+
+    console.log(`[Orders] ลบออเดอร์ ${orderId} เรียบร้อย`);
+    res.json({ success: true, orderId, message: "ลบออเดอร์เรียบร้อยแล้ว" });
+  } catch (error) {
+    console.error("[Orders] ไม่สามารถลบออเดอร์ได้:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========================================
 // User Notes API
 // ========================================

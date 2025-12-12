@@ -322,6 +322,9 @@
               <button class="orders-action-btn btn-chat" title="ไปยังแชท" onclick="window.OrdersV2.goToChat('${order.userId}')">
                 <i class="fas fa-comment"></i>
               </button>
+              <button class="orders-action-btn btn-delete" title="ลบออเดอร์" onclick="window.OrdersV2.deleteOrder('${order.id}')">
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
           </td>
         </tr>
@@ -729,6 +732,13 @@
     }).join('')}
         </div>
       </div>
+
+      <div class="orders-detail-section">
+        <div class="orders-detail-section-title"><i class="fas fa-trash"></i> ลบออเดอร์</div>
+        <button class="orders-btn orders-btn-danger" onclick="window.OrdersV2.deleteOrder('${order.id}')">
+          <i class="fas fa-trash me-1"></i> ลบออเดอร์นี้
+        </button>
+      </div>
     `;
 
     // Update title
@@ -761,6 +771,32 @@
     } catch (error) {
       console.error('[Orders] Save notes error:', error);
       showToast('ไม่สามารถบันทึกหมายเหตุได้', 'error');
+    }
+  }
+
+  // ============ Delete Order ============
+  async function deleteOrder(orderId) {
+    if (!confirm('ต้องการลบออเดอร์นี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/admin/orders/${orderId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showToast('ลบออเดอร์เรียบร้อยแล้ว', 'success');
+        closeDetail();
+        loadOrders();
+      } else {
+        showToast(data.error || 'ไม่สามารถลบออเดอร์ได้', 'error');
+      }
+    } catch (error) {
+      console.error('[Orders] Delete order error:', error);
+      showToast('ไม่สามารถลบออเดอร์ได้', 'error');
     }
   }
 
@@ -1167,7 +1203,8 @@
     openEditModal,
     addOrderItem,
     removeOrderItem,
-    saveOrder: saveOrderFromModal
+    saveOrder: saveOrderFromModal,
+    deleteOrder
   };
 
   // Auto init

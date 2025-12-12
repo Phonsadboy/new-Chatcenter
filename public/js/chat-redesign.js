@@ -822,22 +822,32 @@ class ChatManager {
         }
 
 
+        // Determine if time should be on left or right
+        // User messages: time on left, Admin/AI messages: time on right
+        const isOutgoing = role === 'admin' || role === 'assistant';
+        const roleIcon = role === 'user' ? 'user' : role === 'admin' ? 'user-shield' : 'robot';
+
+        // Status indicator (sending, delivery status)
+        let statusHtml = '';
+        if (isSending) {
+            statusHtml = '<span class="msg-status sending"><i class="fas fa-spinner fa-spin"></i></span>';
+        } else if (deliveryStatus && isOutgoing) {
+            statusHtml = `<span class="msg-status ${deliveryStatus}" title="${this.renderDeliveryStatus(deliveryStatus)}">
+                <i class="fas fa-${deliveryStatus === 'read' ? 'check-double' : 'check'}"></i>
+            </span>`;
+        }
+
         return `
-            <div class="message ${role}">
+            <div class="message ${role}" data-msg-id="${messageId}">
+                ${!isOutgoing ? `<span class="msg-time msg-time-left">${time}</span>` : ''}
                 <div class="message-bubble">
-                    <div class="message-header">
-                        <i class="fas fa-${role === 'user' ? 'user' : role === 'admin' ? 'user-shield' : 'robot'}"></i>
-                        ${roleLabel}
+                    <div class="msg-role-indicator" title="${roleLabel}">
+                        <i class="fas fa-${roleIcon}"></i>
                     </div>
                     <div class="message-content">${content}</div>
                     ${imagesHtml}
-                    <div class="message-time">
-                        ${isSending ? '<i class="fas fa-spinner fa-spin me-1"></i>' : ''}
-                        ${time}
-                    </div>
-
-                    ${deliveryStatus ? `<div class="message-meta text-muted">${this.renderDeliveryStatus(deliveryStatus)}</div>` : ''}
                 </div>
+                ${isOutgoing ? `<span class="msg-time msg-time-right">${time}${statusHtml}</span>` : ''}
             </div>
         `;
     }
@@ -862,8 +872,8 @@ class ChatManager {
             indicator.className = 'message assistant';
             indicator.innerHTML = `
                 <div class="message-bubble">
-                    <div class="message-header">
-                        <i class="fas fa-robot"></i> AI ${platformLabel ? `· ${this.escapeHtml(platformLabel)}` : ''}
+                    <div class="msg-role-indicator" title="AI กำลังพิมพ์">
+                        <i class="fas fa-robot"></i>
                     </div>
                     <div class="message-content">
                         <span class="typing-dot"></span>
@@ -871,6 +881,7 @@ class ChatManager {
                         <span class="typing-dot"></span>
                     </div>
                 </div>
+                <span class="msg-time msg-time-right">กำลังพิมพ์...</span>
             `;
             container.appendChild(indicator);
         }

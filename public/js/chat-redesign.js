@@ -31,17 +31,59 @@ class ChatManager {
         this.currentOrders = [];
         this.isExtractingOrder = false;
 
+        // Bind handlers
+        this.updateAppHeight = this.updateAppHeight.bind(this);
+
         // Initialize
         this.init();
     }
 
     init() {
+        this.setupViewportHeightObserver();
         this.initializeSocket();
         this.setupEventListeners();
         this.loadUsers();
         this.loadAvailableTags();
         this.setupAutoRefresh();
         this.hideTypingIndicator();
+    }
+
+    // ========================================
+    // Viewport Height (Mobile)
+    // ========================================
+
+    setupViewportHeightObserver() {
+        this.updateAppHeight();
+
+        window.addEventListener('resize', this.updateAppHeight);
+        window.addEventListener('focusin', this.updateAppHeight);
+        window.addEventListener('focusout', this.updateAppHeight);
+
+        window.addEventListener('orientationchange', () => {
+            window.setTimeout(this.updateAppHeight, 150);
+        });
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', this.updateAppHeight, { passive: true });
+            window.visualViewport.addEventListener('scroll', this.updateAppHeight, { passive: true });
+        }
+    }
+
+    updateAppHeight() {
+        window.requestAnimationFrame(() => {
+            const viewport = window.visualViewport || null;
+            const height = viewport ? viewport.height : window.innerHeight;
+            if (height && height > 0) {
+                document.documentElement.style.setProperty('--app-height', `${height}px`);
+            }
+
+            const nav = document.querySelector('.app-navbar');
+            if (nav) {
+                const navHeight = nav.offsetHeight;
+                document.documentElement.style.setProperty('--navbar-height', `${navHeight}px`);
+                document.documentElement.style.setProperty('--chat-navbar-height', `${navHeight}px`);
+            }
+        });
     }
 
     // ========================================
@@ -822,8 +864,8 @@ class ChatManager {
         }
 
 
-        // Determine if time should be on left or right
-        // User messages: time on left, Admin/AI messages: time on right
+        // Determine if message is outgoing (admin/AI)
+        // User messages: time on right, Admin/AI messages: time on left
         const isOutgoing = role === 'admin' || role === 'assistant';
         const roleIcon = role === 'user' ? 'user' : role === 'admin' ? 'user-shield' : 'robot';
 
@@ -839,7 +881,7 @@ class ChatManager {
 
         return `
             <div class="message ${role}" data-msg-id="${messageId}">
-                ${!isOutgoing ? `<span class="msg-time msg-time-left">${time}</span>` : ''}
+                ${isOutgoing ? `<span class="msg-time msg-time-left">${time}${statusHtml}</span>` : ''}
                 <div class="message-bubble">
                     <div class="msg-role-indicator" title="${roleLabel}">
                         <i class="fas fa-${roleIcon}"></i>
@@ -847,7 +889,7 @@ class ChatManager {
                     <div class="message-content">${content}</div>
                     ${imagesHtml}
                 </div>
-                ${isOutgoing ? `<span class="msg-time msg-time-right">${time}${statusHtml}</span>` : ''}
+                ${!isOutgoing ? `<span class="msg-time msg-time-right">${time}</span>` : ''}
             </div>
         `;
     }
@@ -871,6 +913,7 @@ class ChatManager {
             indicator.id = 'typingIndicator';
             indicator.className = 'message assistant';
             indicator.innerHTML = `
+                <span class="msg-time msg-time-left">กำลังพิมพ์...</span>
                 <div class="message-bubble">
                     <div class="msg-role-indicator" title="AI กำลังพิมพ์">
                         <i class="fas fa-robot"></i>
@@ -881,7 +924,6 @@ class ChatManager {
                         <span class="typing-dot"></span>
                     </div>
                 </div>
-                <span class="msg-time msg-time-right">กำลังพิมพ์...</span>
             `;
             container.appendChild(indicator);
         }

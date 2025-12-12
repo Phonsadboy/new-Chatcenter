@@ -148,6 +148,46 @@
                                     <button class="btn-header-action" id="btnRefreshProfile" title="อัปเดตข้อมูลผู้ใช้">
                                         <i class="fas fa-sync"></i>
                                     </button>
+                                    <!-- Mobile: overflow actions menu -->
+                                    <div class="dropdown d-lg-none">
+                                        <button class="btn-header-action" id="btnMoreActions" title="เมนูเพิ่มเติม"
+                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end" id="moreActionsMenu">
+                                            <li>
+                                                <a class="dropdown-item" href="#" data-action="togglePurchase">
+                                                    <i class="fas fa-shopping-cart me-2"></i>สถานะการซื้อ
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" data-action="manageTags">
+                                                    <i class="fas fa-tags me-2"></i>จัดการแท็ก
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" data-action="userNotes">
+                                                    <i class="fas fa-sticky-note me-2"></i>โน้ตลูกค้า
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" data-action="toggleAI">
+                                                    <i class="fas fa-robot me-2"></i>เปิด/ปิด AI
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" data-action="refreshProfile">
+                                                    <i class="fas fa-sync me-2"></i>อัปเดตข้อมูลผู้ใช้
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#" data-action="clearChat">
+                                                    <i class="fas fa-trash me-2"></i>ล้างแชท
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
                                     <button class="btn-header-action d-lg-none" id="btnToggleOrders" title="ดูออเดอร์">
                                         <i class="fas fa-clipboard-list"></i>
                                     </button>

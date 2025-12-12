@@ -57,16 +57,22 @@
    Chat App Wrapper
    ======================================== */
 
+/* Tighten space between navbar and chat */
+.app-shell .app-content {
+    padding-top: 0.25rem;
+}
+
 .chat-app-wrapper {
-    padding: 0.5rem;
+    padding: 0.25rem 0.5rem;
     background: var(--chat-bg-app);
-    min-height: calc(100vh - var(--chat-navbar-height));
+    min-height: calc(var(--app-height, 100vh) - var(--chat-navbar-height));
 }
 
 .chat-app {
     display: flex;
-    height: calc(100vh - var(--chat-navbar-height) - 1rem);
+    height: calc(var(--app-height, 100vh) - var(--chat-navbar-height) - 0.5rem);
     background: var(--chat-bg-app);
+    border: 1px solid var(--chat-border-color);
     border-radius: var(--chat-border-radius);
     overflow: hidden;
     box-shadow: var(--chat-shadow);
@@ -1782,7 +1788,7 @@
         position: fixed;
         top: var(--chat-navbar-height);
         left: -100%;
-        height: calc(100vh - var(--chat-navbar-height));
+        height: calc(var(--app-height, 100vh) - var(--chat-navbar-height));
         z-index: 100;
         transition: left 0.25s ease;
         box-shadow: var(--chat-shadow-lg);
@@ -1796,7 +1802,7 @@
         position: fixed;
         top: var(--chat-navbar-height);
         right: -100%;
-        height: calc(100vh - var(--chat-navbar-height));
+        height: calc(var(--app-height, 100vh) - var(--chat-navbar-height));
         z-index: 101;
         transition: right 0.25s ease;
         box-shadow: var(--chat-shadow-lg);
@@ -1830,7 +1836,7 @@
     }
 
     .chat-app {
-        height: calc(100vh - var(--chat-navbar-height));
+        height: calc(var(--app-height, 100vh) - var(--chat-navbar-height));
         border-radius: 0;
     }
 
@@ -1899,7 +1905,7 @@
     }
 
     .user-list {
-        max-height: calc(100vh - 180px);
+        max-height: calc(var(--app-height, 100vh) - 180px);
     }
 
     /* Message input smaller on mobile */
@@ -1926,6 +1932,23 @@
 
     /* Hide char counter on mobile */
     .message-input-footer {
+        display: none;
+    }
+
+    /* Mobile header actions: keep only essential visible */
+    .chat-header {
+        padding: 0 0.25rem;
+    }
+
+    .chat-header-right {
+        gap: 0.25rem;
+    }
+
+    .chat-header-right .header-divider {
+        display: none;
+    }
+
+    .chat-header-right .btn-header-action:not(#btnToggleOrders):not(#btnMoreActions) {
         display: none;
     }
 }

@@ -353,6 +353,39 @@ class ChatManager {
             });
         }
 
+        // Mobile overflow menu actions
+        const moreActionsMenu = document.getElementById('moreActionsMenu');
+        if (moreActionsMenu) {
+            moreActionsMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('[data-action]');
+                if (!item) return;
+                e.preventDefault();
+                const action = item.dataset.action;
+                switch (action) {
+                    case 'togglePurchase':
+                        this.togglePurchaseStatus();
+                        break;
+                    case 'manageTags':
+                        this.openTagModal();
+                        break;
+                    case 'userNotes':
+                        this.openUserNotesModal();
+                        break;
+                    case 'toggleAI':
+                        this.toggleAI();
+                        break;
+                    case 'refreshProfile':
+                        this.refreshCurrentUserProfile();
+                        break;
+                    case 'clearChat':
+                        this.clearChat();
+                        break;
+                    default:
+                        break;
+                }
+            });
+        }
+
         // Order sidebar collapse button
         const btnCollapseOrderSidebar = document.getElementById('btnCollapseOrderSidebar');
         if (btnCollapseOrderSidebar) {

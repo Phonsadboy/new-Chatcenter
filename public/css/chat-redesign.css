@@ -57,20 +57,21 @@
    Chat App Wrapper
    ======================================== */
 
-/* Tighten space between navbar and chat */
-.app-shell .app-content {
-    padding-top: 0.25rem;
+/* Tighten outer spacing for chat page only */
+.chat-page .app-content {
+    padding: 0;
+    max-width: 100%;
 }
 
 .chat-app-wrapper {
-    padding: 0.25rem 0.5rem;
+    padding: 0.125rem;
     background: var(--chat-bg-app);
     min-height: calc(var(--app-height, 100vh) - var(--chat-navbar-height));
 }
 
 .chat-app {
     display: flex;
-    height: calc(var(--app-height, 100vh) - var(--chat-navbar-height) - 0.5rem);
+    height: calc(var(--app-height, 100vh) - var(--chat-navbar-height) - 0.25rem);
     background: var(--chat-bg-app);
     border: 1px solid var(--chat-border-color);
     border-radius: var(--chat-border-radius);

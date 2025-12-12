@@ -9872,18 +9872,29 @@ app.post("/webhook/fb/:appId", async (req, res) => {
                 }
 
                 const echoDoc = {
-                  recipientId: targetUserId,
-                  displayName: "",
-                  message: text || "[ส่งสื่อ/สติกเกอร์]",
-                  response: "",
+                  senderId: targetUserId,
+                  role: "assistant",
+                  content: text || "[ส่งสื่อ/สติกเกอร์]",
+                  timestamp: new Date(),
+                  source: "admin_page",
                   platform: "facebook",
                   botId: facebookBot._id.toString(),
-                  isFromPage: true,
-                  isFromAdmin: true,
-                  timestamp: new Date(),
                 };
 
-                await chatColl.insertOne(echoDoc);
+                const insertResult = await chatColl.insertOne(echoDoc);
+                if (insertResult?.insertedId) {
+                  echoDoc._id = insertResult.insertedId;
+                }
+
+                // Emit ไปยัง admin UI เพื่อแสดงข้อความแบบ real-time
+                try {
+                  io.emit("newMessage", {
+                    userId: targetUserId,
+                    message: echoDoc,
+                    sender: "assistant",
+                    timestamp: echoDoc.timestamp,
+                  });
+                } catch (_) { }
 
                 // Cancel any scheduled follow-ups when page responds
                 if (typeof cancelFollowUpTasksForUser === "function") {
@@ -18863,9 +18874,18 @@ app.post("/api/settings/ai", async (req, res) => {
     // Validate input
     const validModels = [
       "gpt-5",
+      "gpt-5.1",
+      "gpt-5.2",
       "gpt-5-mini",
-      "gpt-5-chat-latest",
       "gpt-5-nano",
+      "gpt-5-pro",
+      "gpt-5.2-pro",
+      "gpt-5-chat-latest",
+      "gpt-5.1-chat-latest",
+      "gpt-5.2-chat-latest",
+      "gpt-5-codex",
+      "gpt-5.1-codex",
+      "gpt-5.1-codex-max",
       "gpt-4.1",
       "gpt-4.1-mini",
       "o3",
@@ -19060,9 +19080,17 @@ const OPENAI_MODEL_PRICING = {
   // GPT-5 series
   "gpt-5": { input: 1.25, output: 10.0 },
   "gpt-5.1": { input: 1.25, output: 10.0 },
+  "gpt-5.2": { input: 1.75, output: 14.0 },
   "gpt-5-mini": { input: 0.25, output: 2.0 },
   "gpt-5-nano": { input: 0.05, output: 0.4 },
   "gpt-5-pro": { input: 15.0, output: 120.0 },
+  "gpt-5.2-pro": { input: 21.0, output: 168.0 },
+  "gpt-5-chat-latest": { input: 1.25, output: 10.0 },
+  "gpt-5.1-chat-latest": { input: 1.25, output: 10.0 },
+  "gpt-5.2-chat-latest": { input: 1.75, output: 14.0 },
+  "gpt-5-codex": { input: 1.25, output: 10.0 },
+  "gpt-5.1-codex": { input: 1.25, output: 10.0 },
+  "gpt-5.1-codex-max": { input: 1.25, output: 10.0 },
   // GPT-4.1 series
   "gpt-4.1": { input: 2.0, output: 8.0 },
   "gpt-4.1-mini": { input: 0.4, output: 1.6 },

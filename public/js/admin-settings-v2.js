@@ -269,6 +269,7 @@ function renderFacebookBotItem(bot) {
                     Model: ${escapeHtml(bot.aiModel || 'gpt-5')}
                     • Page ID: ${escapeHtml(bot.pageId || 'N/A')}
                 </div>
+                ${buildBotInlineControls(bot, 'facebook')}
             </div>
             <div class="bot-actions-compact">
                 <label class="toggle-switch mb-0">
